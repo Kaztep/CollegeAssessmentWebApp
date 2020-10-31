@@ -9,9 +9,10 @@ namespace CollegeAssessmentWebApp
     class Indicator
     {
         public string name;
-        public string course;
-        public string assigment;
-        public string level;
+        public string courseName;
+        public string assignmentName;
+        //I, R ,or S
+        public char level;
 
     }
 }

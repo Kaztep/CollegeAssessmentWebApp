@@ -5,7 +5,8 @@
     <div class="jumbotron">
         <h1>College Assessment Web App</h1>
         <p class="lead">Click the button.</p>
-        <asp:Button ID="btnReport" runat="server" Text="RunReport" OnClick="btnReport_Click" />
+        <asp:Button ID="btnReport" runat="server" Text="Run Report" OnClick="btnReport_Click" />
+        <asp:ListBox ID="lstbFileNames" runat="server" Height="80px" Width="663px"></asp:ListBox>
     </div>
 
     <div class="row">

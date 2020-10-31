@@ -26,8 +26,9 @@ namespace CollegeAssessmentWebApp
 
         protected void btnReport_Click(object sender, EventArgs e)
         {
+            //get all Excel file names uploaded in the folder
             List<string> fileNames = GetFileNames();
-
+            //load the Excel workbooks data
             foreach (string fileName in fileNames)
             {
                 ExcelHelper.getExcelFile(fileName);
@@ -42,10 +43,11 @@ namespace CollegeAssessmentWebApp
 
             for (int i = fileEntries.Count - 1; i >= 0; i--)
             {
+                //remove temp files
                 if (fileEntries[i].Contains("~$"))
                     fileEntries.RemoveAt(i);
-                //else
-                //   listBox1.Items.Add(fileEntries[i]);
+                else
+                    lstbFileNames.Items.Add(fileEntries[i]);
             }
 
             return fileEntries;
