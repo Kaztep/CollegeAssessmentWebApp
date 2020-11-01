@@ -28,10 +28,13 @@ namespace CollegeAssessmentWebApp
         {
             //get all Excel file names uploaded in the folder
             List<string> fileNames = GetFileNames();
+            //collect curriculum maps from all courses
+            List<DataGroup> CurriculumMaps = new List<DataGroup>();
             //load the Excel workbooks data
             foreach (string fileName in fileNames)
             {
-                ExcelHelper.getExcelFile(fileName);
+                //Add datagroup from course curriculum map
+               CurriculumMaps.Add( ExcelHelper.pullFromCurriculumMap(fileName));
             }
 
         }

@@ -9,10 +9,11 @@ namespace CollegeAssessmentWebApp
     class Indicator
     {
         public string name;
-        public string courseName;
-        public string assignmentName;
-        //I, R ,or S
-        public char level;
 
+        //these three are parallel lists
+        //I, R ,or S
+        public List<char> levels = new List<char>();
+        public List<string> assignments = new List<string>();
+        public List<string> courseNames = new List<string>();
     }
 }

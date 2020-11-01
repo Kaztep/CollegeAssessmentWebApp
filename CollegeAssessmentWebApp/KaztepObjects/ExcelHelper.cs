@@ -23,21 +23,32 @@ namespace CollegeAssessmentWebApp
             foreach (string file in Directory.EnumerateFiles("~\\..\\..\\..\\..\\AssessmentExcelFiles","*.xlsx"))
             {
                 string contents = File.ReadAllText(file);
-            }
-
-            
+            }         
 
         }
 
-        public static void getExcelFile(string filename)
+        public static int getLastRowFromEnd(int totalRows)
         {
+            int row;
+            for (row = totalRows; row > 1; row--)
+            {
+                if (Convert.ToString((MySheet.Cells[row, 1] as Microsoft.Office.Interop.Excel.Range).Value2) != null)
+                {
+                    totalRows = row;
+                    break;
+                }
+            }
+            return totalRows;
+        }
 
+        //Should break this down later
+        public static DataGroup pullFromCurriculumMap(string filename)
+        {
+            //load Excel 
             MyApp = new Excel.Application();
             MyApp.Visible = false;
             MyBook = MyApp.Workbooks.Open(filename);
             MySheet = (Excel.Worksheet) MyBook.Sheets[3]; // Explicit cast is not required here
-            int lastRow = MySheet.Cells.SpecialCells(Excel.XlCellType.xlCellTypeLastCell).Row;
-            int lastCol = MySheet.Cells.SpecialCells(Excel.XlCellType.xlCellTypeLastCell).Column;
 
             //pulling the data by cell 
             DataGroup AssessmentData = new DataGroup();
@@ -47,15 +58,15 @@ namespace CollegeAssessmentWebApp
 
 
             //loop through courses
-            //int targetRow = 5;
             int startCol = 2;
-            int iTotalColumns = MySheet.UsedRange.Columns.Count;
-            int iTotalRows = MySheet.UsedRange.Rows.Count;
             //These two lines do the magic.
             MySheet.Columns.ClearFormats();
             MySheet.Rows.ClearFormats();
-            iTotalColumns = MySheet.UsedRange.Columns.Count;
-            iTotalRows = MySheet.UsedRange.Rows.Count;
+            int iTotalColumns = MySheet.UsedRange.Columns.Count;
+            //this is at 1000 due to the setup of the sheet so I have to use function below to count down from the origial total (which, in this case is 1000)
+            int iTotalRows = MySheet.UsedRange.Rows.Count;
+            iTotalRows = getLastRowFromEnd(iTotalRows);
+
 
             List<string> courseNames = new List<string>();
             for (int i = startCol; i < iTotalColumns + 1; i++)
@@ -69,43 +80,60 @@ namespace CollegeAssessmentWebApp
             //add coursenames to assessment data
             AssessmentData.ProgramCourses = courseNames;
 
-
-            //this all needs to be a loop
-
             List<Outcome> listofOutcomes = new List<Outcome>();
-
-            string outcomeName = Convert.ToString((MySheet.Cells[6, 1] as Microsoft.Office.Interop.Excel.Range).Value2);
-            //loop through assessment levels
-            List<string> levels = new List<string>(); //might change this to a dictionary
-            for (int i = startCol; i < iTotalColumns + 1; i++)
+            //loop through outcomes
+            for (int outcomeNum = 6; outcomeNum < iTotalRows; outcomeNum = outcomeNum + 5)
             {
-                Excel.Range currentRange = (Excel.Range)MySheet.Cells[7, i];
-                if (currentRange.Value2 != null)
+                //start with a new outcome each time
+                Outcome outcome = new Outcome();
+                //add outcome name
+                outcome.name = Convert.ToString((MySheet.Cells[outcomeNum, 1] as Microsoft.Office.Interop.Excel.Range).Value2);
+                
+                int indicatorNum = outcomeNum + 1;
+                
+                //loop through indicators
+                string indicatorName;
+                do
                 {
-                    levels.Add(currentRange.Value2.ToString());
-                }
+                    Indicator indicator = new Indicator();
+                    indicatorName = Convert.ToString((MySheet.Cells[indicatorNum, 1] as Microsoft.Office.Interop.Excel.Range).Value2);
+                    //checks to see if the next line is blank 
+                    if (indicatorName == null)
+                    {
+                        outcomeNum++;
+                        break;
+                    }
+
+
+                    //loop through assessment levels and assignments
+                    List<string> levels = new List<string>(); //might change this to a dictionary
+                    List<string> assignmentNames = new List<string>(); //might change this to a dictionary
+
+                    for (int i = startCol; i < iTotalColumns + 1; i++)
+                    {
+                        Excel.Range currentRange = (Excel.Range)MySheet.Cells[7, i];
+                        Excel.Range currentRange2 = (Excel.Range)MySheet.Cells[8, i];
+                        if (currentRange.Value2 != null && currentRange2.Value2 != null)
+                        {
+                            indicator.levels.Add(currentRange.Value2.ToCharArray()[0]);
+                            indicator.assignments.Add(currentRange2.Value2.ToString());
+                        }
+                    }
+
+                    //add indicator to an outcome
+                    indicator.name = indicatorName;
+                    outcome.indicators.Add(indicator);
+                    indicatorNum = indicatorNum + 2;
+                } while (indicatorName != null);
+
+
+                //need to check if next row is empty after this code
+                listofOutcomes.Add(outcome);
+
             }
-
-            //need to check if next row is empty after this code
-            //loop through Assignments
-            List<string> assignmentNames = new List<string>(); //might change this to a dictionary
-            for (int i = startCol; i < iTotalColumns + 1; i++)
-            {
-                Excel.Range currentRange = (Excel.Range)MySheet.Cells[8, i];
-                if (currentRange.Value2 != null)
-                {
-                    assignmentNames.Add(currentRange.Value2.ToString());
-                }
-            }
-
-            Outcome o = new Outcome();
-            listofOutcomes.Add(o);
-
-
-
-            //This is a collection of the data groups - this will be outside of the loop
-            //AssessmentData.Outcomes = listofOutcomes;
-
+            //This is a collection of the data groups
+            AssessmentData.Outcomes = listofOutcomes;
+            return AssessmentData;
 
         }
 

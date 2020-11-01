@@ -9,7 +9,7 @@ namespace CollegeAssessmentWebApp
     class Outcome
     {
         public string name;
-        public List<string> Indicators = new List<string>(5);
+        public List<Indicator> indicators = new List<Indicator>();
     }
 
 }
