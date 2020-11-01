@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CollegeAssessmentWebApp
 {
-    class Outcome
+    public class Outcome
     {
         public string name;
         public List<Indicator> indicators = new List<Indicator>();

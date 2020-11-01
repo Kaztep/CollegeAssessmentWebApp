@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CollegeAssessmentWebApp
 {
-    class Indicator
+    public class Indicator
     {
         public string name;
 

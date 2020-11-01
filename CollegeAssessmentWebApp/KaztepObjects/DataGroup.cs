@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CollegeAssessmentWebApp
 {
-    class DataGroup
+    public class DataGroup
     {
         public string name;
         public string year;
