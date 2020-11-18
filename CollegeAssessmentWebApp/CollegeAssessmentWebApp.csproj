@@ -196,6 +196,7 @@
     <Compile Include="KaztepObjects\ExcelHelper.cs" />
     <Compile Include="KaztepObjects\Indicator.cs" />
     <Compile Include="KaztepObjects\Outcome.cs" />
+    <Compile Include="KaztepObjects\Program.cs" />
     <Compile Include="KaztepObjects\SQLHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Site.Master.cs">
