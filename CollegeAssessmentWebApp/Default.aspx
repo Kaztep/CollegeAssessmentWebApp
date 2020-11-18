@@ -16,12 +16,18 @@
             <p> </p>
         </div>
         <div class="col-md-4">
-            <h2>Test</h2>
-            <p></p>
-            <p></p>
+            <h2>Upload Excel File</h2>
+            <p>
+                <asp:FileUpload ID="FileUpLoad1" runat="server" />
+                <asp:Button ID="btnUpload" runat="server" OnClick="btnUpload_Click" Text="Upload File" />
+            </p>
+            <p>
+                <asp:Label ID="Label1" runat="server" Text="Label"></asp:Label>
+            </p>
         </div>
         <div class="col-md-4">
-            <h2>Test</h2>
+            <h2>Test<asp:ListBox ID="ListBox1" runat="server"></asp:ListBox>
+            </h2>
             <p></p>
             <p></p>
         </div>

@@ -11,6 +11,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Excel = Microsoft.Office.Interop.Excel;
+using System.Web.UI.WebControls.WebParts;
+
 
 
 
@@ -35,10 +37,10 @@ namespace CollegeAssessmentWebApp
             }
 
         }
-
+     
         public List<string> GetFileNames()
         {
-            string[] hold = Directory.GetFiles(@"C:\Users\Kellon\source\repos\AssessmentExcelFiles");
+            string[] hold = Directory.GetFiles(@"C:\Users\mrako\Desktop\Keztap Solutions\GitHub\AssessmentExcelFiles");
             List<string> fileEntries = hold.ToList();
 
             for (int i = fileEntries.Count - 1; i >= 0; i--)
@@ -51,6 +53,20 @@ namespace CollegeAssessmentWebApp
             }
 
             return fileEntries;
+        }
+
+        protected void btnUpload_Click(object sender, EventArgs e)
+        {
+            if (this.FileUpLoad1.HasFile)
+            {
+
+                this.FileUpLoad1.SaveAs(@"C:\Users\mrako\Desktop\Keztap Solutions\CollegeAssessmentWebApp\FileUploadTesters\NewTest\" + FileUpLoad1.FileName);
+                Label1.Text = "File Uploaded: " + FileUpLoad1.FileName + DateTime.Now.ToString(" mm/dd/yyyy: hh:mm:ss tt");
+            }
+            else
+            {
+                Label1.Text = "No File Uploaded.";
+            }
         }
     }
 }
