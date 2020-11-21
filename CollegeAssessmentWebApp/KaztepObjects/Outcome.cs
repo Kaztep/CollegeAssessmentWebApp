@@ -5,7 +5,7 @@ namespace CollegeAssessmentWebApp
 {
     public class Outcome : DataObject
     {
-        public int curriculumMapID;
+        public int CurriculumMapID;
 
         /// <summary>
         /// Assignments are in the Indicator objects
