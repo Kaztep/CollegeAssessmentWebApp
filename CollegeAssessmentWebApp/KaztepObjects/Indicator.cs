@@ -6,14 +6,9 @@ using System.Threading.Tasks;
 
 namespace CollegeAssessmentWebApp
 {
-    public class Indicator
+    public class Indicator : DataObject
     {
-        public string name;
-
-        //these three are parallel lists
-        //I, R ,or S
-        public List<char> levels = new List<char>();
-        public List<string> assignments = new List<string>();
-        public List<string> courseNames = new List<string>();
+        public int OutcomeID;
+        public List<Assignment> Assignments = new List<Assignment>();
     }
 }

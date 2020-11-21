@@ -12,9 +12,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Excel = Microsoft.Office.Interop.Excel;
 
-
-
-
 namespace CollegeAssessmentWebApp
 {
     public partial class _Default : Page
@@ -26,27 +23,27 @@ namespace CollegeAssessmentWebApp
 
         protected void btnReport_Click(object sender, EventArgs e)
         {
-            //get all Excel file names uploaded in the folder
+            // Get all Excel file names uploaded in the folder
             List<string> fileNames = GetFileNames();
-            //collect curriculum maps from all courses
-            List<DataGroup> CurriculumMaps = new List<DataGroup>();
-            //load the Excel workbooks data
+            // Collect curriculum maps from all courses
+            List<CurriculumMap> CurriculumMaps = new List<CurriculumMap>();
+            // Load the Excel workbooks data
             foreach (string fileName in fileNames)
             {
-                //Add datagroup from course curriculum map
-               CurriculumMaps.Add( ExcelHelper.pullFromCurriculumMap(fileName));
+                // Add datagroup from course curriculum map
+               CurriculumMaps.Add(ExcelHelper.PullFromCurriculumMap(fileName));
             }
 
         }
 
         public List<string> GetFileNames()
         {
-            string[] hold = Directory.GetFiles(@"C:\Users\Kellon\source\repos\AssessmentExcelFiles");
+            string[] hold = Directory.GetFiles(@"D:\Projects\Kaztep\CollegeAssessmentWebApp\AssessmentExcelFiles");
             List<string> fileEntries = hold.ToList();
 
             for (int i = fileEntries.Count - 1; i >= 0; i--)
             {
-                //remove temp files
+                // Remove temp files
                 if (fileEntries[i].Contains("~$"))
                     fileEntries.RemoveAt(i);
                 else

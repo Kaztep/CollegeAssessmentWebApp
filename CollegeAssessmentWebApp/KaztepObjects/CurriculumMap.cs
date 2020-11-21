@@ -1,21 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CollegeAssessmentWebApp
 {
-    public class DataGroup
+    public class CurriculumMap : DataObject
     {
-        public string name;
-        public string year;
+        public string Year;
         public List<string> ProgramCourses = new List<string>(11);
-        //indicators are in the outcome object
+        
+        /// <summary>
+        /// Indicators are in the Outcome objects
+        /// </summary>
         public List<Outcome> Outcomes = new List<Outcome>(5);
-
-
-
-
     }
 }
