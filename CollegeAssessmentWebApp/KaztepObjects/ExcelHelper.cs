@@ -56,6 +56,7 @@ namespace CollegeAssessmentWebApp
             MyApp.Visible = false;
             MyBook = MyApp.Workbooks.Open(fileName);
             // Explicit cast is not required here
+            // Change index to 4 to test the Sample map
             MySheet = (Excel.Worksheet)MyBook.Sheets[3]; 
             // These two lines do the magic.
             MySheet.Columns.ClearFormats();
@@ -89,15 +90,19 @@ namespace CollegeAssessmentWebApp
         {
             var outcomes = new List<Outcome>();
 
-            // Loop through outcomes
-            for (int outcomeNum = 6; outcomeNum < iTotalRows; outcomeNum = outcomeNum + 5)
+            for (int outcomeNum = 6; outcomeNum < iTotalRows; outcomeNum++)
             {
-                Outcome outcome = new Outcome();
-                outcome.Name = Convert.ToString((MySheet.Cells[outcomeNum, 1] as Excel.Range).Value2);
-                outcome.Indicators = GetIndicators(outcomeNum);
+                string value2 = Convert.ToString((MySheet.Cells[outcomeNum, 1] as Excel.Range).Value2);
 
-                // Need to check if next row is empty after this code
-                outcomes.Add(outcome);
+                if (!String.IsNullOrEmpty(value2) && value2.StartsWith("Program Outcome"))
+                {
+                    Outcome outcome = new Outcome();
+                    outcome.Name = value2;
+                    outcome.Indicators = GetIndicators(outcomeNum);
+
+                    // Need to check if next row is empty after this code
+                    outcomes.Add(outcome);
+                }
             }
 
             return outcomes;
@@ -115,14 +120,11 @@ namespace CollegeAssessmentWebApp
                 indicatorName = Convert.ToString((MySheet.Cells[indicatorNum, 1] as Excel.Range).Value2);
                 // Checks to see if the next line is blank 
                 if (indicatorName == null)
-                {
-                    outcomeNum++;
                     break;
-                }
 
                 Indicator indicator = new Indicator();
-                indicator.Assignments = GetAssignments();
                 indicator.Name = indicatorName;
+                indicator.Assignments = GetAssignments(indicatorNum);
                 indicators.Add(indicator);
                 indicatorNum += 2;
             } while (indicatorName != null);
@@ -130,20 +132,22 @@ namespace CollegeAssessmentWebApp
             return indicators;
         }
 
-        private static List<Assignment> GetAssignments()
+        private static List<Assignment> GetAssignments(int indicatorNum)
         {
             var assignments = new List<Assignment>();
 
             // Loop through assessment levels and assignments
             for (int i = startCol; i < iTotalColumns + 1; i++)
             {
-                Excel.Range currentRange = (Excel.Range)MySheet.Cells[7, i];
-                Excel.Range currentRange2 = (Excel.Range)MySheet.Cells[8, i];
+                Excel.Range currentRange = (Excel.Range)MySheet.Cells[indicatorNum, i];
+                Excel.Range currentRange2 = (Excel.Range)MySheet.Cells[indicatorNum + 1, i];
+                Excel.Range currentRange3 = (Excel.Range)MySheet.Cells[5, i];
                 if (currentRange.Value2 != null && currentRange2.Value2 != null)
                 {
                     Assignment assignment = new Assignment();
                     assignment.Level = currentRange.Value2.ToCharArray()[0];
                     assignment.Name = currentRange2.Value2.ToString();
+                    assignment.Course = currentRange3.Value2.ToString();
                     assignments.Add(assignment);
                 }
             }

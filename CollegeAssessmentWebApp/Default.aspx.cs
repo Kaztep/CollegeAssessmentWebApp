@@ -30,10 +30,9 @@ namespace CollegeAssessmentWebApp
             // Load the Excel workbooks data
             foreach (string fileName in fileNames)
             {
-                // Add datagroup from course curriculum map
-               CurriculumMaps.Add(ExcelHelper.PullFromCurriculumMap(fileName));
+                // Add course curriculum map
+                CurriculumMaps.Add(ExcelHelper.PullFromCurriculumMap(fileName));
             }
-
         }
 
         public List<string> GetFileNames()

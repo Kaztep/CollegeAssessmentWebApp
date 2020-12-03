@@ -90,7 +90,7 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Load all DataObjects from a table.
         /// </summary>
-        /// <param name="dbo">An instance of the type of DBObject to load</param>
+        /// <param name="dbo">An instance of the type of DataObject to load</param>
         public static List<DataObject> LoadAll(DataObject dataObject)
         {
             string queryString = "SELECT * FROM " + dataObject.TableName;
@@ -123,7 +123,7 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Update every field on the DBObject except for the ID
+        /// Update every field on the DataObject except for the ID
         /// </summary>
         public static void Update(DataObject dataObject)
         {
@@ -133,7 +133,7 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Returns the SQL statement for updating a DBObject
+        /// Returns the SQL statement for updating a DataObject
         /// </summary>
         /// <param name="dataObject">Object to update</param>
         private static string GetUpdateStatement(DataObject dataObject)
@@ -154,7 +154,7 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Insert a list of DBObjects to the database (must all have same type)
+        /// Insert a list of DataObject to the database (must all have same type)
         /// </summary>
         public static void Insert(List<DataObject> objects)
         {
