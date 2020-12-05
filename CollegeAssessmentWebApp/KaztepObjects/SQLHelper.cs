@@ -107,6 +107,7 @@ namespace CollegeAssessmentWebApp
                     var temp = properties[i];
                     properties.RemoveAt(i);
                     properties.Insert(nameID, temp);
+                    break;
                 }
             }
         }
@@ -189,8 +190,8 @@ namespace CollegeAssessmentWebApp
         /// <param name="dbo">An instance of the type of DataObject to load</param>
         public static List<DataObject> LoadAll(DataObject dataObject)
         {
-            string queryString = "SELECT * FROM " + dataObject.TableName;
-            return LoadList(dataObject, queryString);
+            string sqlQuery = $"SELECT * FROM {dataObject.TableName}";
+            return LoadList(dataObject, sqlQuery);
         }
 
         public static List<DataObject> LoadWhere(DataObject dataObject, string column, string val)
@@ -243,7 +244,7 @@ namespace CollegeAssessmentWebApp
 
             string updateStatement = $"UPDATE {dataObject.TableName} SET ";
 
-            string values = "";
+            string values = String.Empty;
             foreach (string col in columns)
                 values += $"{col} = '{t.GetProperty(col).GetValue(dataObject)}', ";
 
@@ -335,7 +336,7 @@ namespace CollegeAssessmentWebApp
             Type type = pi.PropertyType;
 
             // Remove time from date
-            //if (prop.Contains("DateTime"))
+            //if (type == typeof(DateTime))
             //    val = val.Split(' ')[0];
 
             if (type == typeof(string) || type == typeof(char) || type == typeof(DateTime))
@@ -411,7 +412,6 @@ namespace CollegeAssessmentWebApp
             ClearTable("AssessmentPoint");
         }
 
-
         /// <summary>
         /// Insert all data inside a list of CurriculumMaps
         /// </summary>
@@ -420,9 +420,9 @@ namespace CollegeAssessmentWebApp
             SetIDs(curriculumMaps);
 
             // Extract the collections of child objects from the CurriculumMaps
-            var outcomes = curriculumMaps.SelectMany(o => (o as CurriculumMap).Outcomes).ToList().OfType<DataObject>().ToList();
-            var indicators = outcomes.SelectMany(o => (o as Outcome).Indicators).ToList().OfType<DataObject>().ToList();
-            var assignments = indicators.SelectMany(o => (o as Indicator).Assignments).ToList().OfType<DataObject>().ToList();
+            var outcomes = curriculumMaps.SelectMany(o => (o as CurriculumMap).Outcomes).OfType<DataObject>().ToList();
+            var indicators = outcomes.SelectMany(o => (o as Outcome).Indicators).OfType<DataObject>().ToList();
+            var assignments = indicators.SelectMany(o => (o as Indicator).Assignments).OfType<DataObject>().ToList();
 
             // Insert all the collections
             Insert(curriculumMaps);
@@ -439,7 +439,7 @@ namespace CollegeAssessmentWebApp
             if (objects == null || objects.Count == 0 || objects[0].GetType() != typeof(CurriculumMap))
                 return;
 
-            int nextCmID = GetNextNumber(objects[0].TableName);
+            int nextCmID = GetNextNumber("CurriculumMap");
             int nextOutcomeID = GetNextNumber("Outcome");
             int nextIndicatorID = GetNextNumber("Indicator");
             int nextAssignmentID = GetNextNumber("Assignment");
@@ -480,18 +480,27 @@ namespace CollegeAssessmentWebApp
             var assignments = LoadAll(new Assignment());
 
             // Add lists to the parent objects
-            // TODO: Find a better way to load these using SQL Joins on the IDs
+            // TODO: Find a way to load these using SQL Joins on the IDs
             foreach (Indicator i in indicators)
-                i.Assignments = assignments.Where(a => (a as Assignment).IndicatorID == i.ID).ToList().OfType<Assignment>().ToList();
+                i.Assignments = assignments.OfType<Assignment>().Where(a => a.IndicatorID == i.ID).ToList();
 
             foreach (Outcome o in outcomes)
-                o.Indicators = indicators.Where(i => (i as Indicator).OutcomeID == o.ID).ToList().OfType<Indicator>().ToList();
+                o.Indicators = indicators.OfType<Indicator>().Where(i => i.OutcomeID == o.ID).ToList();
 
             foreach (CurriculumMap map in maps)
-                map.Outcomes = outcomes.Where(o => (o as Outcome).CurriculumMapID == map.ID).ToList().OfType<Outcome>().ToList();
+                map.Outcomes = outcomes.OfType<Outcome>().Where(o => o.CurriculumMapID == map.ID).ToList();
 
             return maps;
         }
+
+        /* Select all rows and columns from Assignment where CurriculumMapID = 0 (Example)
+         
+            SELECT Assignment.* FROM Assignment
+            JOIN Indicator as i on Assignment.IndicatorID = i.ID
+            JOIN Outcome as o on i.OutcomeID = o.ID
+            JOIN CurriculumMap as c on o.CurriculumMapID = c.ID
+            WHERE c.ID = 0
+         */
 
         public static List<DataObject> LoadAllPoints()
         {
