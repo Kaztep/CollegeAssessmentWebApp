@@ -17,8 +17,8 @@ namespace CollegeAssessmentWebApp
         {
             Outcome outcome = new Outcome()
             {
-                CurriculumMapID = reader.GetInt32(0),
-                ID = reader.GetInt32(1),
+                ID = reader.GetInt32(0),
+                CurriculumMapID = reader.GetInt32(1),
                 Name = reader.GetString(2),
                 DateCreated = reader.GetDateTime(3)
             };

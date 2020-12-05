@@ -14,11 +14,11 @@ namespace CollegeAssessmentWebApp
         {
             Assignment assignment = new Assignment()
             {
-                IndicatorID = reader.GetInt32(0),
-                Level = Convert.ToChar(reader.GetString(1)),
-                Course = reader.GetString(2),
-                ID = reader.GetInt32(3),
-                Name = reader.GetString(4),
+                ID = reader.GetInt32(0),
+                IndicatorID = reader.GetInt32(1),
+                Name = reader.GetString(2),
+                Level = Convert.ToChar(reader.GetString(3)),
+                Course = reader.GetString(4),
                 DateCreated = reader.GetDateTime(5)
             };
 

@@ -30,14 +30,15 @@ namespace CollegeAssessmentWebApp
         {
             string query = $"CREATE TABLE {dataObject.TableName} (";
 
-            var properties = dataObject.GetType().GetProperties();
+            var properties = dataObject.GetType().GetProperties().ToList();
+
+            // Don't create columns for TableName or List properties
+            properties.RemoveAll(p => p.Name == "TableName" || p.PropertyType.FullName.StartsWith("System.Collections.Generic.List"));
+
+            ReorderPropertyInfoList(properties);
 
             foreach (PropertyInfo pi in properties)
             {
-                // Skip over TableName and List properties
-                if (pi.Name == "TableName" || pi.PropertyType.FullName.StartsWith("System.Collections.Generic.List"))
-                    continue;
-
                 query += pi.Name + " ";
 
                 Type type = pi.PropertyType;
@@ -59,13 +60,55 @@ namespace CollegeAssessmentWebApp
                 query += ", ";
             }
 
-            query = query.TrimEnd().TrimEnd(',');
-            query += ");";
+            query = query.TrimEnd().TrimEnd(',') + ");";
 
             if (TableExists(dataObject.TableName))
                 DropTable(dataObject.TableName);
 
             ExecuteNonQuery(ConnectionString, query);
+        }
+
+        /// <summary>
+        /// Reorders list of properties to desired column order.
+        /// ID > Foreign IDs > Name > anything else > DateCreated
+        /// </summary>
+        private static void ReorderPropertyInfoList(List<PropertyInfo> properties)
+        {
+            // Swap ID first
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name == "ID")
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(0, temp);
+                    break;
+                }
+            }
+
+            // Swap Foreign IDs
+            int nameID = 1;
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name != "ID" && properties[i].Name.Contains("ID"))
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(1, temp);
+                    nameID++;
+                }
+            }
+
+            // Swap Name
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name == "Name")
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(nameID, temp);
+                }
+            }
         }
 
         /// <summary>
@@ -189,18 +232,23 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Returns the SQL statement for updating a DataObject
         /// </summary>
-        /// <param name="dataObject">Object to update</param>
         private static string GetUpdateStatement(DataObject dataObject)
         {
             Type t = dataObject.GetType();
             List<string> columns = GetColumns(dataObject.TableName);
-            columns.Remove("ID");
+
+            // Don't update ID
+            if (columns.Contains("ID"))
+                columns.Remove("ID");
 
             string updateStatement = $"UPDATE {dataObject.TableName} SET ";
 
             string values = "";
             foreach (string col in columns)
-                values += (col + $" = '{t.GetProperty(col).GetValue(dataObject)}', ");
+                values += $"{col} = '{t.GetProperty(col).GetValue(dataObject)}', ";
+
+            // Remove the trailing comma
+            values = values.Remove(values.Length - 2, 1);
 
             string whereClause = $"WHERE ID = '{t.GetProperty("ID").GetValue(dataObject)}'";
 
@@ -243,8 +291,6 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Return the Type of a List<> Property in a DataObject
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static Type GetChildListType(DataObject o)
         {
             var properties = o.GetType().GetProperties();
@@ -266,9 +312,9 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Returns INSERT statement with the columns specified
         /// </summary>
-        private static string GetInsertStatement(string table, List<string> columns)
+        private static string GetInsertStatement(string tableName, List<string> columns)
         {
-            string s = "INSERT INTO " + table + " (";
+            string s = $"INSERT INTO {tableName} (";
             foreach (string c in columns)
                 s += c + ", ";
             return s = s.Remove(s.Length - 2) + ") ";
@@ -327,7 +373,7 @@ namespace CollegeAssessmentWebApp
 
         /// <summary>
         /// Doubles up the single quotes contained in every string field on the object.
-        /// So the sql statement doesn't brake. Execute this before inserting a new DataObject.
+        /// So the sql statement doesn't brake. Execute this before updating an object.
         /// </summary>
         public static void DoubleApostraphies(DataObject dataObject)
         {
@@ -340,6 +386,31 @@ namespace CollegeAssessmentWebApp
         }
 
         #region Helper methods for Curriculum maps and all associated child objects
+
+        /// <summary>
+        /// Create the tables for each DataObject
+        /// </summary>
+        public static void CreateTables()
+        {
+            CreateTable(new CurriculumMap());
+            CreateTable(new Outcome());
+            CreateTable(new Indicator());
+            CreateTable(new Assignment());
+            CreateTable(new AssessmentPoint());
+        }
+
+        /// <summary>
+        /// Clear the tables for each DataObject
+        /// </summary>
+        public static void ClearTables()
+        {
+            ClearTable("CurriculumMap");
+            ClearTable("Outcome");
+            ClearTable("Indicator");
+            ClearTable("Assignment");
+            ClearTable("AssessmentPoint");
+        }
+
 
         /// <summary>
         /// Insert all data inside a list of CurriculumMaps
@@ -358,28 +429,6 @@ namespace CollegeAssessmentWebApp
             Insert(outcomes);
             Insert(indicators);
             Insert(assignments);
-        }
-
-        /// <summary>
-        /// Create the tables for each DataObject
-        /// </summary>
-        public static void CreateTables()
-        {
-            CreateTable(new CurriculumMap());
-            CreateTable(new Outcome());
-            CreateTable(new Indicator());
-            CreateTable(new Assignment());
-        }
-
-        /// <summary>
-        /// Clear the tables for each DataObject
-        /// </summary>
-        public static void ClearTables()
-        {
-            ClearTable("CurriculumMap");
-            ClearTable("Outcome");
-            ClearTable("Indicator");
-            ClearTable("Assignment");
         }
 
         /// <summary>
@@ -442,6 +491,13 @@ namespace CollegeAssessmentWebApp
                 map.Outcomes = outcomes.Where(o => (o as Outcome).CurriculumMapID == map.ID).ToList().OfType<Outcome>().ToList();
 
             return maps;
+        }
+
+        public static List<DataObject> LoadAllPoints()
+        {
+            var points = LoadAll(new AssessmentPoint());
+
+            return points;
         }
 
         #endregion

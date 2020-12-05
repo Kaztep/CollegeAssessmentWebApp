@@ -29,11 +29,12 @@ namespace CollegeAssessmentWebApp
 
         public static CurriculumMap PullFromCurriculumMap(string fileName)
         {
-            LoadExcelObjects(fileName);
+            LoadExcelObjects(fileName, 3);
 
             // Pulling the data by cell 
             CurriculumMap curriculumMap = new CurriculumMap();
 
+            curriculumMap.FileName = fileName;
             curriculumMap.Name = Convert.ToString((MySheet.Cells[1, 1] as Excel.Range).Value2);
             curriculumMap.Year = Convert.ToString((MySheet.Cells[3, 1] as Excel.Range).Value2);
             
@@ -48,14 +49,13 @@ namespace CollegeAssessmentWebApp
             return curriculumMap;
         }
 
-        private static void LoadExcelObjects(string fileName)
+        private static void LoadExcelObjects(string fileName, int index)
         {
             MyApp = new Excel.Application();
             MyApp.Visible = false;
             MyBook = MyApp.Workbooks.Open(fileName);
             // Explicit cast is not required here
-            // Change index to 4 to test the Sample map
-            MySheet = (Excel.Worksheet)MyBook.Sheets[3]; 
+            MySheet = (Excel.Worksheet)MyBook.Sheets[index]; 
             // These two lines do the magic.
             MySheet.Columns.ClearFormats();
             MySheet.Rows.ClearFormats();

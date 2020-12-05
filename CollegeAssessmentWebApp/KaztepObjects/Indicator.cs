@@ -13,8 +13,8 @@ namespace CollegeAssessmentWebApp
         {
             Indicator indicator = new Indicator()
             {
-                OutcomeID = reader.GetInt32(0),
-                ID = reader.GetInt32(1),
+                ID = reader.GetInt32(0),
+                OutcomeID = reader.GetInt32(1),
                 Name = reader.GetString(2),
                 DateCreated = reader.GetDateTime(3)
             };
