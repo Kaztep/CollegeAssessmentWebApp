@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 
 namespace CollegeAssessmentWebApp
 {
@@ -16,5 +17,19 @@ namespace CollegeAssessmentWebApp
         /// Indicators are in the Outcome objects
         /// </summary>
         public List<Outcome> Outcomes { get; set; }
+
+        public override DataObject GetFromReader(SqlDataReader reader)
+        {
+            CurriculumMap curriculumMap = new CurriculumMap()
+            {
+                Year = reader.GetString(0),
+                ProgramCourses = reader.GetString(1),
+                ID = reader.GetInt32(2),
+                Name = reader.GetString(3),
+                DateCreated = reader.GetDateTime(4)
+            };
+
+            return curriculumMap;
+        }
     }
 }

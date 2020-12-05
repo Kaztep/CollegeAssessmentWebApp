@@ -396,6 +396,28 @@ namespace CollegeAssessmentWebApp
             }
         }
 
+        public static List<DataObject> LoadAllMaps()
+        {
+            // Load objects from each table
+            var maps = LoadAll(new CurriculumMap());
+            var outcomes = LoadAll(new Outcome());
+            var indicators = LoadAll(new Indicator());
+            var assignments = LoadAll(new Assignment());
+
+            // Add lists to the parent objects
+            // TODO: Find a better way to load these using SQL Joins on the IDs
+            foreach (Indicator i in indicators)
+                i.Assignments = assignments.Where(a => (a as Assignment).IndicatorID == i.ID).ToList().OfType<Assignment>().ToList();
+
+            foreach (Outcome o in outcomes)
+                o.Indicators = indicators.Where(i => (i as Indicator).OutcomeID == o.ID).ToList().OfType<Indicator>().ToList();
+
+            foreach (CurriculumMap map in maps)
+                map.Outcomes = outcomes.Where(o => (o as Outcome).CurriculumMapID == map.ID).ToList().OfType<Outcome>().ToList();
+
+            return maps;
+        }
+
         #endregion
     }
 }
