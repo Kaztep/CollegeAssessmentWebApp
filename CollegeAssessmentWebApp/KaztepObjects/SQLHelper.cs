@@ -10,13 +10,13 @@ namespace CollegeAssessmentWebApp
     {
         public static string ConnectionString = "Data Source=GRR-PETZAK;Initial Catalog=CollegeWebAssessmentApp;Integrated Security=True";
 
-        public static int ExecuteNonQuery(string dbString, string query)
+        public static int ExecuteNonQuery(string dbString, string sqlQuery)
         {
             int rowsAffected = 0;
             using (SqlConnection connection = new SqlConnection(dbString))
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand(query, connection))
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                     rowsAffected = command.ExecuteNonQuery();
                 connection.Close();
             }
@@ -38,27 +38,7 @@ namespace CollegeAssessmentWebApp
             ReorderPropertyInfoList(properties);
 
             foreach (PropertyInfo pi in properties)
-            {
-                query += pi.Name + " ";
-
-                Type type = pi.PropertyType;
-
-                // TODO: Mark columns as Primary/Foreign Keys
-
-                if (type == typeof(string))
-                    query += "VARCHAR(500)";
-                else if (type == typeof(DateTime))
-                    query += "DATETIME";
-                else if (type == typeof(bool))
-                    query += "BIT";
-                else if (type == typeof(decimal))
-                    query += "DECIMAL";
-                else if (type == typeof(int))
-                    query += "INT";
-                else if (type == typeof(char))
-                    query += "VARCHAR(1)";
-                query += ", ";
-            }
+                query += $"{pi.Name} {GetColumnDataType(pi.PropertyType)}, ";
 
             query = query.TrimEnd().TrimEnd(',') + ");";
 
@@ -66,6 +46,30 @@ namespace CollegeAssessmentWebApp
                 DropTable(dataObject.TableName);
 
             ExecuteNonQuery(ConnectionString, query);
+        }
+
+        /// <summary>
+        /// Returns the SQL column type associated with a DataObject's field type
+        /// </summary>
+        private static string GetColumnDataType(Type type)
+        {
+            // TODO: Mark columns as Primary/Foreign Keys
+
+            if (type == typeof(string))
+                return "VARCHAR(500)";
+            else if (type == typeof(DateTime))
+                return "DATETIME";
+            else if (type == typeof(bool))
+                return "BIT";
+            else if (type == typeof(decimal))
+                return "DECIMAL";
+            else if (type == typeof(double))
+                return "DECIMAL(18, 2)";
+            else if (type == typeof(int))
+                return "INT";
+            else if (type == typeof(char))
+                return "VARCHAR(1)";
+            return null;
         }
 
         /// <summary>
@@ -153,6 +157,18 @@ namespace CollegeAssessmentWebApp
         {
             string sqlQuery = $"DELETE FROM {tableName};";
             return ExecuteNonQuery(ConnectionString, sqlQuery);
+        }
+
+        public static void AddTableColumn(string tableName, string columnName, string columnType)
+        {
+            string sqlQuery = $"ALTER TABLE {tableName} ADD {columnName} {columnType};";
+            ExecuteNonQuery(ConnectionString, sqlQuery);
+        }
+
+        public static void DropTableColumn(string tableName, string columnName)
+        {
+            string sqlQuery = $"ALTER TABLE {tableName} DROP COLUMN {columnName};";
+            ExecuteNonQuery(ConnectionString, sqlQuery);
         }
 
         /// <summary>

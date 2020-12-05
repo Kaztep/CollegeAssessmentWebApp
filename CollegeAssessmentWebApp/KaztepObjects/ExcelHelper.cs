@@ -17,7 +17,7 @@ namespace CollegeAssessmentWebApp
         private static Excel.Worksheet MySheet = null;
         private static int iTotalRows;
         private static int iTotalColumns;
-        private static int startCol;
+        private static int startCol;    
 
         public static void GetExcelFiles()
         {
@@ -109,10 +109,9 @@ namespace CollegeAssessmentWebApp
         private static List<Indicator> GetIndicators(int outcomeNum)
         {
             var indicators = new List<Indicator>();
-
             int indicatorNum = outcomeNum + 1;
-
             string indicatorName;
+
             do
             {
                 indicatorName = Convert.ToString((MySheet.Cells[indicatorNum, 1] as Excel.Range).Value2);
