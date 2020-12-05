@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Data.SqlClient;
 using System.Reflection;
 
@@ -25,6 +23,9 @@ namespace CollegeAssessmentWebApp
             return rowsAffected;
         }
 
+        /// <summary>
+        /// Creates a table for a DataObject. All non-list properties are dynamically included as columns in the table.
+        /// </summary>
         public static void CreateTable(DataObject dataObject)
         {
             string query = $"CREATE TABLE {dataObject.TableName} (";
@@ -40,6 +41,8 @@ namespace CollegeAssessmentWebApp
                 query += pi.Name + " ";
 
                 Type type = pi.PropertyType;
+
+                // TODO: Mark columns as Primary/Foreign Keys
 
                 if (type == typeof(string))
                     query += "VARCHAR(500)";
@@ -65,6 +68,9 @@ namespace CollegeAssessmentWebApp
             ExecuteNonQuery(ConnectionString, query);
         }
 
+        /// <summary>
+        /// Returns true if the table exists
+        /// </summary>
         private static bool TableExists(string tableName)
         {
             // Query returns 1 if table exists, otherwise 0
@@ -105,6 +111,9 @@ namespace CollegeAssessmentWebApp
             return ExecuteNonQuery(ConnectionString, sqlQuery);
         }
 
+        /// <summary>
+        /// Returns the (highest number + 1) in a specified column. Defaults to ID column
+        /// </summary>
         private static int GetNextNumber(string tableName, string column = "ID")
         {
             int i = -1;
@@ -157,6 +166,7 @@ namespace CollegeAssessmentWebApp
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
+                        // TODO: Figure out how to do this without using an instance of the DataObject
                         while (reader.Read())
                             objects.Add(dataObject.GetFromReader(reader));
                     }
@@ -172,8 +182,8 @@ namespace CollegeAssessmentWebApp
         public static void Update(DataObject dataObject)
         {
             DoubleApostraphies(dataObject);
-            string sql = GetUpdateStatement(dataObject);
-            ExecuteNonQuery(ConnectionString, sql);
+            string sqlQuery = GetUpdateStatement(dataObject);
+            ExecuteNonQuery(ConnectionString, sqlQuery);
         }
 
         /// <summary>
@@ -222,8 +232,8 @@ namespace CollegeAssessmentWebApp
                     string values = "VALUES (";
                     foreach (string col in columns)
                         values = GetValueStatement(o, col, values);
-                    string sql = String.Format("{0}{1})", insertStatement, values.TrimEnd().TrimEnd(','));
-                    using (SqlCommand command = new SqlCommand(sql, connection))
+                    string sqlQuery = String.Format("{0}{1})", insertStatement, values.TrimEnd().TrimEnd(','));
+                    using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                         command.ExecuteNonQuery();
                 }
                 connection.Close();
@@ -298,11 +308,11 @@ namespace CollegeAssessmentWebApp
         public static List<string> GetColumns(string tableName)
         {
             List<string> columns = new List<string>();
-            string sql = "SELECT * FROM " + tableName;
+            string sqlQuery = "SELECT * FROM " + tableName;
             using (SqlConnection connection = new SqlConnection(ConnectionString))
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand(sql, connection))
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
@@ -317,7 +327,7 @@ namespace CollegeAssessmentWebApp
 
         /// <summary>
         /// Doubles up the single quotes contained in every string field on the object.
-        /// So the sql statement doesn't brake.
+        /// So the sql statement doesn't brake. Execute this before inserting a new DataObject.
         /// </summary>
         public static void DoubleApostraphies(DataObject dataObject)
         {
@@ -334,7 +344,6 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Insert all data inside a list of CurriculumMaps
         /// </summary>
-        /// <param name="curriculumMaps"></param>
         public static void InsertAll(List<DataObject> curriculumMaps)
         {
             SetIDs(curriculumMaps);
@@ -376,7 +385,6 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Set the IDs on a list of Curriculum Maps and all child objects. Execute this before inserting into DB
         /// </summary>
-        /// <param name="objects"></param>
         public static void SetIDs(List<DataObject> objects)
         {
             if (objects == null || objects.Count == 0 || objects[0].GetType() != typeof(CurriculumMap))
@@ -412,9 +420,8 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Returns a list of all CurriculumMaps from the databases
+        /// Returns a list of all CurriculumMaps from the database
         /// </summary>
-        /// <returns></returns>
         public static List<DataObject> LoadAllMaps()
         {
             // Load objects from each table
