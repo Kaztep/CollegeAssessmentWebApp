@@ -331,20 +331,29 @@ namespace CollegeAssessmentWebApp
 
         #region Helper methods for Curriculum maps and all associated child objects
 
+        /// <summary>
+        /// Insert all data inside a list of CurriculumMaps
+        /// </summary>
+        /// <param name="curriculumMaps"></param>
         public static void InsertAll(List<DataObject> curriculumMaps)
         {
             SetIDs(curriculumMaps);
 
+            // Extract the collections of child objects from the CurriculumMaps
             var outcomes = curriculumMaps.SelectMany(o => (o as CurriculumMap).Outcomes).ToList().OfType<DataObject>().ToList();
             var indicators = outcomes.SelectMany(o => (o as Outcome).Indicators).ToList().OfType<DataObject>().ToList();
             var assignments = indicators.SelectMany(o => (o as Indicator).Assignments).ToList().OfType<DataObject>().ToList();
 
+            // Insert all the collections
             Insert(curriculumMaps);
             Insert(outcomes);
             Insert(indicators);
             Insert(assignments);
         }
 
+        /// <summary>
+        /// Create the tables for each DataObject
+        /// </summary>
         public static void CreateTables()
         {
             CreateTable(new CurriculumMap());
@@ -353,6 +362,9 @@ namespace CollegeAssessmentWebApp
             CreateTable(new Assignment());
         }
 
+        /// <summary>
+        /// Clear the tables for each DataObject
+        /// </summary>
         public static void ClearTables()
         {
             ClearTable("CurriculumMap");
@@ -361,7 +373,10 @@ namespace CollegeAssessmentWebApp
             ClearTable("Assignment");
         }
 
-
+        /// <summary>
+        /// Set the IDs on a list of Curriculum Maps and all child objects. Execute this before inserting into DB
+        /// </summary>
+        /// <param name="objects"></param>
         public static void SetIDs(List<DataObject> objects)
         {
             if (objects == null || objects.Count == 0 || objects[0].GetType() != typeof(CurriculumMap))
@@ -396,6 +411,10 @@ namespace CollegeAssessmentWebApp
             }
         }
 
+        /// <summary>
+        /// Returns a list of all CurriculumMaps from the databases
+        /// </summary>
+        /// <returns></returns>
         public static List<DataObject> LoadAllMaps()
         {
             // Load objects from each table

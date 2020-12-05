@@ -36,7 +36,7 @@ namespace CollegeAssessmentWebApp
 
             //SQLHelper.ClearTables();
             //SQLHelper.InsertAll(curriculumMaps);
-            var maps = SQLHelper.LoadAllMaps();
+            //var maps = SQLHelper.LoadAllMaps();
         }
 
         public List<string> GetFileNames()
