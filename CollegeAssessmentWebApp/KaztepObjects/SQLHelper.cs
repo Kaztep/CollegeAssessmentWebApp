@@ -10,60 +10,104 @@ namespace CollegeAssessmentWebApp
 {
     public class SQLHelper
     {
-        public static string ConnectionString = "Data Source=GRR-PETZAK;Initial Catalog=Record;Integrated Security=True";
+        public static string ConnectionString = "Data Source=GRR-PETZAK;Initial Catalog=CollegeWebAssessmentApp;Integrated Security=True";
 
-        public static void ExecuteNonQuery(string dbString, string query)
+        public static int ExecuteNonQuery(string dbString, string query)
         {
+            int rowsAffected = 0;
             using (SqlConnection connection = new SqlConnection(dbString))
             {
                 connection.Open();
                 using (SqlCommand command = new SqlCommand(query, connection))
-                    command.ExecuteNonQuery();
+                    rowsAffected = command.ExecuteNonQuery();
                 connection.Close();
             }
+            return rowsAffected;
         }
 
         public static void CreateTable(DataObject dataObject)
         {
-            string query = $"CREATE TABLE {dataObject.TableName}";
-            // TODO: finish
-            ExecuteNonQuery(ConnectionString, query);
-        }
+            string query = $"CREATE TABLE {dataObject.TableName} (";
 
-        public static void CreateTable(string tableName, Dictionary<string, string> properties)
-        {
-            string query = $"CREATE TABLE {tableName} (";
+            var properties = dataObject.GetType().GetProperties();
 
-            foreach (KeyValuePair<string, string> property in properties)
+            foreach (PropertyInfo pi in properties)
             {
-                query += property.Key + " ";
+                // Skip over TableName and List properties
+                if (pi.Name == "TableName" || pi.PropertyType.FullName.StartsWith("System.Collections.Generic.List"))
+                    continue;
 
-                if (property.Value == "string")
-                    query += "VARCHAR(255)";
-                else if (property.Value == "string(max)")
-                    query += "VARCHAR(MAX)";
-                else if (property.Value == "date")
-                    query += "DATE";
-                else if (property.Value == "datetime")
+                query += pi.Name + " ";
+
+                Type type = pi.PropertyType;
+
+                if (type == typeof(string))
+                    query += "VARCHAR(500)";
+                else if (type == typeof(DateTime))
                     query += "DATETIME";
-                else if (property.Value == "bool")
+                else if (type == typeof(bool))
                     query += "BIT";
-                else if (property.Value == "decimal")
+                else if (type == typeof(decimal))
                     query += "DECIMAL";
-                else if (property.Value == "int")
+                else if (type == typeof(int))
                     query += "INT";
+                else if (type == typeof(char))
+                    query += "VARCHAR(1)";
                 query += ", ";
             }
 
             query = query.TrimEnd().TrimEnd(',');
             query += ");";
 
+            if (TableExists(dataObject.TableName))
+                DropTable(dataObject.TableName);
+
             ExecuteNonQuery(ConnectionString, query);
+        }
+
+        private static bool TableExists(string tableName)
+        {
+            // Query returns 1 if table exists, otherwise 0
+            string sqlQuery = "IF EXISTS (SELECT 1 " +
+                              "FROM INFORMATION_SCHEMA.TABLES " +
+                              "WHERE TABLE_TYPE='BASE TABLE' " +
+                             $"AND TABLE_NAME='{tableName}') " +
+                              "BEGIN SELECT 1 END " +
+                              "ELSE BEGIN SELECT 0 END";
+
+            bool exists = false;
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            exists = reader.GetInt32(0) == 1;
+                    }
+                }
+                connection.Close();
+            }
+
+            return exists;
+        }
+
+        private static void DropTable(string tableName)
+        {
+            string sqlQuery = $"DROP TABLE {tableName};";
+            ExecuteNonQuery(ConnectionString, sqlQuery);
+        }
+
+        private static int ClearTable(string tableName)
+        {
+            string sqlQuery = $"DELETE FROM {tableName};";
+            return ExecuteNonQuery(ConnectionString, sqlQuery);
         }
 
         private static int GetNextNumber(string tableName, string column = "ID")
         {
-            int i = 0;
+            int i = -1;
             string sqlQuery = $"SELECT {column} from {tableName}";
 
             using (SqlConnection connection = new SqlConnection(ConnectionString))
@@ -84,7 +128,7 @@ namespace CollegeAssessmentWebApp
                 connection.Close();
             }
 
-            return i;
+            return i + 1;
         }
 
         /// <summary>
@@ -161,16 +205,20 @@ namespace CollegeAssessmentWebApp
             if (objects == null || objects.Count == 0)
                 return;
 
-            // TODO: Check for and/or create table
+            string tableName = objects[0].TableName;
 
-            List<string> columns = GetColumns(objects[0].TableName);
-            string insertStatement = GetInsertStatement(objects[0].TableName, columns);
+            if (!TableExists(tableName))
+                CreateTable(objects[0]);
+
+            List<string> columns = GetColumns(tableName);
+            string insertStatement = GetInsertStatement(tableName, columns);
 
             using (SqlConnection connection = new SqlConnection(ConnectionString))
             {
                 connection.Open();
                 foreach (DataObject o in objects)
                 {
+                    o.DateCreated = DateTime.Now;
                     string values = "VALUES (";
                     foreach (string col in columns)
                         values = GetValueStatement(o, col, values);
@@ -180,6 +228,29 @@ namespace CollegeAssessmentWebApp
                 }
                 connection.Close();
             }
+        }
+
+        /// <summary>
+        /// Return the Type of a List<> Property in a DataObject
+        /// </summary>
+        /// <param name="o"></param>
+        /// <returns></returns>
+        public static Type GetChildListType(DataObject o)
+        {
+            var properties = o.GetType().GetProperties();
+
+            foreach (PropertyInfo pi in properties)
+            {
+                var fullName = pi.PropertyType.FullName;
+
+                if (fullName.StartsWith("System.Collections.Generic.List"))
+                {
+                    string className = fullName.Split('[')[2].Split(',')[0].ToString();
+                    return Type.GetType(className);
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -205,16 +276,17 @@ namespace CollegeAssessmentWebApp
                 return values += "'', ";
 
             string val = pi.GetValue(dataObject).ToString();
-            string prop = pi.ToString();
+            Type type = pi.PropertyType;
 
-            if (prop.Contains("DateTime"))
-                val = val.Split(' ')[0]; // Remove time from date
+            // Remove time from date
+            //if (prop.Contains("DateTime"))
+            //    val = val.Split(' ')[0];
 
-            if (prop.Contains("String") || prop.Contains("DateTime"))
+            if (type == typeof(string) || type == typeof(char) || type == typeof(DateTime))
                 values += "'" + val.Replace("'", "''") + "', ";
-            else if (prop.Contains("Double") || prop.Contains("Int32") || prop.Contains("Decimal"))
+            else if (type == typeof(Int32) || type == typeof(double) || type == typeof(decimal))
                 values += val + ", ";
-            else if (prop.Contains("Boolean"))
+            else if (type == typeof(bool))
                 values += (val == "False" ? "0" : "1") + ", ";
 
             return values;
@@ -256,5 +328,74 @@ namespace CollegeAssessmentWebApp
                     pi.SetValue(dataObject, pi.GetValue(dataObject)?.ToString().Replace("'", "''"));
             }
         }
+
+        #region Helper methods for Curriculum maps and all associated child objects
+
+        public static void InsertAll(List<DataObject> curriculumMaps)
+        {
+            SetIDs(curriculumMaps);
+
+            var outcomes = curriculumMaps.SelectMany(o => (o as CurriculumMap).Outcomes).ToList().OfType<DataObject>().ToList();
+            var indicators = outcomes.SelectMany(o => (o as Outcome).Indicators).ToList().OfType<DataObject>().ToList();
+            var assignments = indicators.SelectMany(o => (o as Indicator).Assignments).ToList().OfType<DataObject>().ToList();
+
+            Insert(curriculumMaps);
+            Insert(outcomes);
+            Insert(indicators);
+            Insert(assignments);
+        }
+
+        public static void CreateTables()
+        {
+            CreateTable(new CurriculumMap());
+            CreateTable(new Outcome());
+            CreateTable(new Indicator());
+            CreateTable(new Assignment());
+        }
+
+        public static void ClearTables()
+        {
+            ClearTable("CurriculumMap");
+            ClearTable("Outcome");
+            ClearTable("Indicator");
+            ClearTable("Assignment");
+        }
+
+
+        public static void SetIDs(List<DataObject> objects)
+        {
+            if (objects == null || objects.Count == 0 || objects[0].GetType() != typeof(CurriculumMap))
+                return;
+
+            int nextCmID = GetNextNumber(objects[0].TableName);
+            int nextOutcomeID = GetNextNumber("Outcome");
+            int nextIndicatorID = GetNextNumber("Indicator");
+            int nextAssignmentID = GetNextNumber("Assignment");
+
+            foreach (CurriculumMap cm in objects)
+            {
+                cm.ID = nextCmID++;
+
+                foreach (Outcome o in cm.Outcomes)
+                {
+                    o.ID = nextOutcomeID++;
+                    o.CurriculumMapID = cm.ID;
+
+                    foreach (Indicator i in o.Indicators)
+                    {
+                        i.ID = nextIndicatorID++;
+                        i.OutcomeID = o.ID;
+
+                        foreach (Assignment a in i.Assignments)
+                        {
+                            a.ID = nextAssignmentID++;
+                            a.IndicatorID = i.ID;
+                        }
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }

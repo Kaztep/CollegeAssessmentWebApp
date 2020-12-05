@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
 using System.Data.SqlClient;
 
 namespace CollegeAssessmentWebApp
 {
     public class DataObject
     {
-        public int ID;
-        public string Name;
+        public int ID { get; set; }
+        public string Name { get; set; }
+        public DateTime DateCreated { get; set; }
 
         public string TableName
         {

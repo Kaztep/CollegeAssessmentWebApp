@@ -5,12 +5,12 @@ namespace CollegeAssessmentWebApp
 {
     public class Outcome : DataObject
     {
-        public int CurriculumMapID;
+        public int CurriculumMapID { get; set; }
 
         /// <summary>
         /// Assignments are in the Indicator objects
         /// </summary>
-        public List<Indicator> Indicators = new List<Indicator>();
+        public List<Indicator> Indicators { get; set; }
     }
 
 }

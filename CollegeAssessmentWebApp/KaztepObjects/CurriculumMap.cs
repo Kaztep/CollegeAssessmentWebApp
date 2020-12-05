@@ -5,12 +5,16 @@ namespace CollegeAssessmentWebApp
 {
     public class CurriculumMap : DataObject
     {
-        public string Year;
-        public List<string> ProgramCourses = new List<string>(11);
+        public string Year { get; set; }
+        /// <summary>
+        /// Program courses delimited by comma
+        /// Maybe change this to a List<string>
+        /// </summary>
+        public string ProgramCourses { get; set; }
         
         /// <summary>
         /// Indicators are in the Outcome objects
         /// </summary>
-        public List<Outcome> Outcomes = new List<Outcome>(5);
+        public List<Outcome> Outcomes { get; set; }
     }
 }

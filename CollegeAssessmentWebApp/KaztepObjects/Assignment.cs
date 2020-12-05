@@ -5,9 +5,9 @@ namespace CollegeAssessmentWebApp
 {
     public class Assignment : DataObject
     {
-        public int IndicatorID;
+        public int IndicatorID { get; set; }
         // I, R, or S
-        public char Level;
-        public string Course;
+        public char Level { get; set; }
+        public string Course { get; set; }
     }
 }

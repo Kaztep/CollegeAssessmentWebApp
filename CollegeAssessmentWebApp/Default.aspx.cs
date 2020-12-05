@@ -26,13 +26,16 @@ namespace CollegeAssessmentWebApp
             // Get all Excel file names uploaded in the folder
             List<string> fileNames = GetFileNames();
             // Collect curriculum maps from all courses
-            List<CurriculumMap> CurriculumMaps = new List<CurriculumMap>();
+            List<DataObject> curriculumMaps = new List<DataObject>();
             // Load the Excel workbooks data
             foreach (string fileName in fileNames)
             {
                 // Add course curriculum map
-                CurriculumMaps.Add(ExcelHelper.PullFromCurriculumMap(fileName));
+                curriculumMaps.Add(ExcelHelper.PullFromCurriculumMap(fileName));
             }
+
+            //SQLHelper.ClearTables();
+            SQLHelper.InsertAll(curriculumMaps);
         }
 
         public List<string> GetFileNames()

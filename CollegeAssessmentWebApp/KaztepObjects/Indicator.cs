@@ -8,7 +8,7 @@ namespace CollegeAssessmentWebApp
 {
     public class Indicator : DataObject
     {
-        public int OutcomeID;
-        public List<Assignment> Assignments = new List<Assignment>();
+        public int OutcomeID { get; set; }
+        public List<Assignment> Assignments { get; set; }
     }
 }

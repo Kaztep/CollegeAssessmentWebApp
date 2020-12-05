@@ -45,8 +45,6 @@ namespace CollegeAssessmentWebApp
             curriculumMap.ProgramCourses = GetCourseNames();
             curriculumMap.Outcomes = GetOutcomes();
 
-            SetIDs(curriculumMap);
-
             return curriculumMap;
         }
 
@@ -74,16 +72,16 @@ namespace CollegeAssessmentWebApp
             return totalRows;
         }
 
-        private static List<string> GetCourseNames()
+        private static string GetCourseNames()
         {
-            var courseNames = new List<string>();
+            var courseNames = String.Empty;
             for (int i = startCol; i < iTotalColumns + 1; i++)
             {
                 Excel.Range currentRange = (Excel.Range)MySheet.Cells[5, i];
                 if (currentRange.Value2 != null)
-                    courseNames.Add(currentRange.Value2.ToString());
-            }
-            return courseNames;
+                    courseNames += currentRange.Value2 + ",";
+            }        
+            return courseNames.TrimEnd(',');
         }
 
         private static List<Outcome> GetOutcomes()
@@ -142,6 +140,9 @@ namespace CollegeAssessmentWebApp
                 Excel.Range currentRange = (Excel.Range)MySheet.Cells[indicatorNum, i];
                 Excel.Range currentRange2 = (Excel.Range)MySheet.Cells[indicatorNum + 1, i];
                 Excel.Range currentRange3 = (Excel.Range)MySheet.Cells[5, i];
+
+                // TODO: Are assignments valid if they don't have a level?
+                // Currently we only add ones with a level
                 if (currentRange.Value2 != null && currentRange2.Value2 != null)
                 {
                     Assignment assignment = new Assignment();
@@ -152,11 +153,6 @@ namespace CollegeAssessmentWebApp
                 }
             }
             return assignments;
-        }
-
-        private static void SetIDs(CurriculumMap curriculumMap)
-        {
-
         }
     }
 }
