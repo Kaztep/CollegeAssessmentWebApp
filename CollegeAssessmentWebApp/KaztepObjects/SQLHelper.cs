@@ -44,6 +44,26 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
+        /// Run a sql query and read/return all values from a certain column
+        /// </summary>
+        private static List<object> GetValuesFromQuery(string sqlQuery, int columnIndex = 0)
+        {
+            var values = new List<object>();
+            using (SqlConnection connection = GetConnection())
+            {
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            values.Add(reader.GetValue(columnIndex));
+                    }
+                }
+            }
+            return values;
+        }
+
+        /// <summary>
         /// Creates a table for a DataObject. All non-list properties are dynamically included as columns in the table.
         /// </summary>
         public static void CreateTable(DataObject dataObject)
@@ -105,7 +125,7 @@ namespace CollegeAssessmentWebApp
                 string foreignTable = propName.Remove(propName.Length - 2, 2);
 
                 // Check if foreign ID column exists, then add FK reference
-                if (TableExists(foreignTable) && GetColumns(foreignTable).Contains("ID"))
+                if (TableExists(foreignTable) && ColumnExists(foreignTable, "ID"))
                     dataType += $" FOREIGN KEY REFERENCES {foreignTable}(ID)";
             }
 
@@ -113,47 +133,17 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Reorders list of properties to desired column order.
-        /// ID > Foreign IDs > Name > anything else > DateCreated
+        /// Returns a list of all columns names from a table
         /// </summary>
-        private static void ReorderPropertyInfoList(List<PropertyInfo> properties)
+        public static List<string> GetColumns(string tableName)
         {
-            // Move ID to front
-            for (int i = properties.Count - 1; i >= 0; i--)
-            {
-                if (properties[i].Name == "ID")
-                {
-                    var temp = properties[i];
-                    properties.RemoveAt(i);
-                    properties.Insert(0, temp);
-                    break;
-                }
-            }
+            string sqlQuery = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'";
+            return GetValuesFromQuery(sqlQuery).OfType<string>().ToList();
+        }
 
-            // Foreign IDs next
-            int nameID = 1;
-            for (int i = properties.Count - 1; i >= 0; i--)
-            {
-                if (properties[i].Name != "ID" && properties[i].Name.EndsWith("ID"))
-                {
-                    var temp = properties[i];
-                    properties.RemoveAt(i);
-                    properties.Insert(1, temp);
-                    nameID++;
-                }
-            }
-
-            // Name next
-            for (int i = properties.Count - 1; i >= 0; i--)
-            {
-                if (properties[i].Name == "Name")
-                {
-                    var temp = properties[i];
-                    properties.RemoveAt(i);
-                    properties.Insert(nameID, temp);
-                    break;
-                }
-            }
+        private static bool ColumnExists(string tableName, string column)
+        {
+            return GetColumns(tableName).Contains(column);
         }
 
         /// <summary>
@@ -162,32 +152,19 @@ namespace CollegeAssessmentWebApp
         private static bool TableExists(string tableName)
         {
             // Query returns 1 if table exists, otherwise 0
-            string sqlQuery = "IF EXISTS (SELECT 1 " +
-                              "FROM INFORMATION_SCHEMA.TABLES " +
-                              "WHERE TABLE_TYPE='BASE TABLE' " +
-                             $"AND TABLE_NAME='{tableName}') " +
-                              "BEGIN SELECT 1 END " +
-                              "ELSE BEGIN SELECT 0 END";
+            string sqlQuery = "IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES " +
+                             $"WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME='{tableName}') " +
+                              "BEGIN SELECT 1 END ELSE BEGIN SELECT 0 END";
 
-            bool exists = false;
-            using (SqlConnection connection = GetConnection())
-            {
-                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                {
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                            exists = reader.GetInt32(0) == 1;
-                    }
-                }
-            }
-
-            return exists;
+            return Convert.ToInt32(GetValuesFromQuery(sqlQuery)[0]) == 1;
         }
 
         private static void DropTable(string tableName)
         {
-            DeleteTableConstraints(tableName);
+            if (!TableExists(tableName))
+                return;
+
+            DeleteForeignConstraintsToTable(tableName);
             string sqlQuery = $"DROP TABLE {tableName};";
             ExecuteNonQuery(sqlQuery);
         }
@@ -206,79 +183,58 @@ namespace CollegeAssessmentWebApp
 
         public static void AddColumn(string tableName, string column, string columnType)
         {
+            if (ColumnExists(tableName, column))
+                return;
+
             string sqlQuery = $"ALTER TABLE {tableName} ADD {column} {columnType};";
             ExecuteNonQuery(sqlQuery);
         }
 
         public static void DropColumn(string tableName, string column)
         {
+            if (!ColumnExists(tableName, column))
+                return;
+
             DeleteColumnConstraints(tableName, column);
             string sqlQuery = $"ALTER TABLE {tableName} DROP COLUMN {column};";
             ExecuteNonQuery(sqlQuery);
         }
 
-        /// <summary>
-        /// Find and delete foreign key references to all columns in a table
-        /// </summary>
-        private static void DeleteTableConstraints(string tableName)
+        private static void DropConstraint(string tableName, string constraint)
         {
-            var tables = new List<string>();
-            var constraints = new List<string>();
-
-            string sqlQuery = $"EXEC sp_fkeys '{tableName}'";
-
-            using (SqlConnection connection = GetConnection())
-            {
-                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                {
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            // FKTABLE_NAME column
-                            tables.Add(reader.GetString(6));
-                            // FK_NAME column
-                            constraints.Add(reader.GetString(11));
-                        }
-                    }
-                }
-            }
-
-            for (int i = 0; i < tables.Count; i++)
-            {
-                sqlQuery = $"ALTER TABLE {tables[i]} DROP CONSTRAINT {constraints[i]}";
-                ExecuteNonQuery(sqlQuery);
-            }
+            string sqlQuery = $"ALTER TABLE {tableName} DROP CONSTRAINT {constraint}";
+            ExecuteNonQuery(sqlQuery);
         }
 
         /// <summary>
-        /// Delete all foreign key references on a column
+        /// Find and delete all foreign key constraint references to a table
+        /// </summary>
+        private static void DeleteForeignConstraintsToTable(string tableName)
+        {
+            string sqlQuery = $"EXEC sp_fkeys '{tableName}'";
+
+            // FKTABLE_NAME column
+            var tables = GetValuesFromQuery(sqlQuery, 6).OfType<string>().ToList();
+            // FK_NAME column
+            var constraints = GetValuesFromQuery(sqlQuery, 11).OfType<string>().ToList();
+
+            for (int i = 0; i < tables.Count; i++)
+                DropConstraint(tables[i], constraints[i]);
+        }
+
+        /// <summary>
+        /// Delete all foreign key constraints on a column
         /// </summary>
         private static void DeleteColumnConstraints(string tableName, string column)
         {
-            string sqlQuery = $"SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
-                              $"WHERE TABLE_NAME = '{tableName}' " +
-                              $"AND COLUMN_NAME = '{column}' " +
-                              $"AND CONSTRAINT_NAME LIKE 'FK%'";
+            string sqlQuery =  "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
+                              $"WHERE TABLE_NAME = '{tableName}' AND COLUMN_NAME = '{column}' " +
+                               "AND CONSTRAINT_NAME LIKE 'FK%'";
 
-            var constraints = new List<string>();
-            using (SqlConnection connection = GetConnection())
-            {
-                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                {
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                            constraints.Add(reader.GetString(0));
-                    }
-                }
-            }
+            var constraints = GetValuesFromQuery(sqlQuery).OfType<string>().ToList();
 
             foreach (string constraint in constraints)
-            {
-                sqlQuery = $"ALTER TABLE {tableName} DROP CONSTRAINT {constraint}";
-                ExecuteNonQuery(sqlQuery);
-            }
+                DropConstraint(tableName, constraint);
         }
 
         /// <summary>
@@ -286,32 +242,14 @@ namespace CollegeAssessmentWebApp
         /// </summary>
         private static int GetNextNumber(string tableName, string column = "ID")
         {
-            int i = -1;
             string sqlQuery = $"SELECT {column} from {tableName}";
-
-            using (SqlConnection connection = GetConnection())
-            {
-                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                {
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            int val = reader.GetInt32(0);
-                            if (val > i)
-                                i = val;
-                        }
-                    }
-                }
-            }
-
-            return i + 1;
+            var values = GetValuesFromQuery(sqlQuery).OfType<int>().ToList();
+            return values.Count == 0 ? 0 : values.Max() + 1;
         }
 
         /// <summary>
         /// Load all DataObjects from a table.
         /// </summary>
-        /// <param name="dbo">An instance of the type of DataObject to load</param>
         public static List<DataObject> LoadAll(DataObject dataObject)
         {
             string sqlQuery = $"SELECT * FROM {dataObject.TableName}";
@@ -399,10 +337,13 @@ namespace CollegeAssessmentWebApp
                 foreach (DataObject o in objects)
                 {
                     o.DateCreated = DateTime.Now;
+
                     string values = "VALUES (";
                     foreach (string col in columns)
                         values = GetValueStatement(o, col, values);
+
                     string sqlQuery = String.Format("{0}{1})", insertStatement, values.TrimEnd().TrimEnd(','));
+
                     using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                         command.ExecuteNonQuery();
                 }
@@ -425,8 +366,7 @@ namespace CollegeAssessmentWebApp
         /// </summary>
         private static string GetValueStatement(DataObject dataObject, string col, string values)
         {
-            Type t = dataObject.GetType();
-            PropertyInfo pi = t.GetProperty(col);
+            PropertyInfo pi = dataObject.GetType().GetProperty(col);
 
             if (pi.GetValue(dataObject) == null)
                 return values += "'', ";
@@ -448,26 +388,7 @@ namespace CollegeAssessmentWebApp
             return values;
         }
 
-        /// <summary>
-        /// Returns a list of all columns names from a table
-        /// </summary>
-        public static List<string> GetColumns(string tableName)
-        {
-            List<string> columns = new List<string>();
-            string sqlQuery = $"SELECT * FROM {tableName}";
-            using (SqlConnection connection = GetConnection())
-            {
-                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                {
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        for (int i = 0; i < reader.FieldCount; i++)
-                            columns.Add(reader.GetName(i));
-                    }
-                }
-            }
-            return columns;
-        }
+        #region Non-SQL helpers
 
         /// <summary>
         /// Doubles up the single quotes contained in every string field on the object.
@@ -502,6 +423,52 @@ namespace CollegeAssessmentWebApp
 
             return null;
         }
+
+        /// <summary>
+        /// Reorders list of properties to desired column order.
+        /// ID > Foreign IDs > Name > anything else > DateCreated
+        /// </summary>
+        private static void ReorderPropertyInfoList(List<PropertyInfo> properties)
+        {
+            // Move ID to front
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name == "ID")
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(0, temp);
+                    break;
+                }
+            }
+
+            // Foreign IDs next
+            int nameID = 1;
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name != "ID" && properties[i].Name.EndsWith("ID"))
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(1, temp);
+                    nameID++;
+                }
+            }
+
+            // Name next
+            for (int i = properties.Count - 1; i >= 0; i--)
+            {
+                if (properties[i].Name == "Name")
+                {
+                    var temp = properties[i];
+                    properties.RemoveAt(i);
+                    properties.Insert(nameID, temp);
+                    break;
+                }
+            }
+        }
+
+        #endregion
 
         #region Helper methods for Curriculum maps and all associated child objects
 
