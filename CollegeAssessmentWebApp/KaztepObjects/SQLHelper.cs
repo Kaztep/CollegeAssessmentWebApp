@@ -212,7 +212,7 @@ namespace CollegeAssessmentWebApp
 
         public static void DropColumn(string tableName, string column)
         {
-            DeleteColumnRestraints(tableName, column);
+            DeleteColumnConstraints(tableName, column);
             string sqlQuery = $"ALTER TABLE {tableName} DROP COLUMN {column};";
             ExecuteNonQuery(sqlQuery);
         }
@@ -254,7 +254,7 @@ namespace CollegeAssessmentWebApp
         /// <summary>
         /// Delete all foreign key references on a column
         /// </summary>
-        private static void DeleteColumnRestraints(string tableName, string column)
+        private static void DeleteColumnConstraints(string tableName, string column)
         {
             string sqlQuery = $"SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                               $"WHERE TABLE_NAME = '{tableName}' " +
