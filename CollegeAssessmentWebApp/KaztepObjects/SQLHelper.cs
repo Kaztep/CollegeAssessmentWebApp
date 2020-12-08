@@ -10,17 +10,37 @@ namespace CollegeAssessmentWebApp
     {
         public static string ConnectionString = "Data Source=GRR-PETZAK;Initial Catalog=CollegeWebAssessmentApp;Integrated Security=True";
 
-        public static int ExecuteNonQuery(string dbString, string sqlQuery)
+        /// <summary>
+        /// Returns an open SqlConnection
+        /// </summary>
+        private static SqlConnection GetConnection()
+        {
+            SqlConnection sqlConnection = new SqlConnection(ConnectionString);
+            sqlConnection.Open();
+            return sqlConnection;
+        }
+
+        public static int ExecuteNonQuery(string sqlQuery)
         {
             int rowsAffected = 0;
-            using (SqlConnection connection = new SqlConnection(dbString))
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                     rowsAffected = command.ExecuteNonQuery();
-                connection.Close();
             }
             return rowsAffected;
+        }
+
+        public static int TryExecuteNonQuery(string sqlQuery)
+        {
+            try
+            {
+                return ExecuteNonQuery(sqlQuery);
+            }
+            catch (Exception e)
+            {
+                return 0;
+            }
         }
 
         /// <summary>
@@ -28,7 +48,7 @@ namespace CollegeAssessmentWebApp
         /// </summary>
         public static void CreateTable(DataObject dataObject)
         {
-            string query = $"CREATE TABLE {dataObject.TableName} (";
+            string sqlQuery = $"CREATE TABLE {dataObject.TableName} (";
 
             var properties = dataObject.GetType().GetProperties().ToList();
 
@@ -38,38 +58,58 @@ namespace CollegeAssessmentWebApp
             ReorderPropertyInfoList(properties);
 
             foreach (PropertyInfo pi in properties)
-                query += $"{pi.Name} {GetColumnDataType(pi.PropertyType)}, ";
+                sqlQuery += GetColumnDataType(pi);
 
-            query = query.TrimEnd().TrimEnd(',') + ");";
+            sqlQuery = sqlQuery.TrimEnd().TrimEnd(',') + ");";
 
             if (TableExists(dataObject.TableName))
                 DropTable(dataObject.TableName);
 
-            ExecuteNonQuery(ConnectionString, query);
+            ExecuteNonQuery(sqlQuery);
         }
 
         /// <summary>
         /// Returns the SQL column type associated with a DataObject's field type
         /// </summary>
-        private static string GetColumnDataType(Type type)
+        private static string GetColumnDataType(PropertyInfo propertyInfo)
         {
-            // TODO: Mark columns as Primary/Foreign Keys
+            Type type = propertyInfo.PropertyType;
+            string propName = propertyInfo.Name;
+            string dataType = String.Empty;
+
+            // TODO: Add support for VARCHAR(x/MAX), NVARCHAR, Date (w/o time), Bytes, Image, etc.
 
             if (type == typeof(string))
-                return "VARCHAR(500)";
+                dataType = "VARCHAR(500)";
             else if (type == typeof(DateTime))
-                return "DATETIME";
+                dataType = "DATETIME";
             else if (type == typeof(bool))
-                return "BIT";
+                dataType = "BIT";
             else if (type == typeof(decimal))
-                return "DECIMAL";
+                dataType = "DECIMAL";
             else if (type == typeof(double))
-                return "DECIMAL(18, 2)";
+                dataType = "DECIMAL(18, 2)";
             else if (type == typeof(int))
-                return "INT";
+                dataType = "INT";
             else if (type == typeof(char))
-                return "VARCHAR(1)";
-            return null;
+                dataType = "VARCHAR(1)";
+
+            // Mark ID as primary key
+            if (propName == "ID")
+            {
+                dataType += " NOT NULL PRIMARY KEY";
+            }
+            // Assume all other IDs are foreign keys (for now)
+            else if (propName.EndsWith("ID"))
+            {
+                string foreignTable = propName.Remove(propName.Length - 2, 2);
+
+                // Check if foreign ID column exists, then add FK reference
+                if (TableExists(foreignTable) && GetColumns(foreignTable).Contains("ID"))
+                    dataType += $" FOREIGN KEY REFERENCES {foreignTable}(ID)";
+            }
+
+            return $"{propName} {dataType},";
         }
 
         /// <summary>
@@ -78,7 +118,7 @@ namespace CollegeAssessmentWebApp
         /// </summary>
         private static void ReorderPropertyInfoList(List<PropertyInfo> properties)
         {
-            // Swap ID first
+            // Move ID to front
             for (int i = properties.Count - 1; i >= 0; i--)
             {
                 if (properties[i].Name == "ID")
@@ -90,11 +130,11 @@ namespace CollegeAssessmentWebApp
                 }
             }
 
-            // Swap Foreign IDs
+            // Foreign IDs next
             int nameID = 1;
             for (int i = properties.Count - 1; i >= 0; i--)
             {
-                if (properties[i].Name != "ID" && properties[i].Name.Contains("ID"))
+                if (properties[i].Name != "ID" && properties[i].Name.EndsWith("ID"))
                 {
                     var temp = properties[i];
                     properties.RemoveAt(i);
@@ -103,7 +143,7 @@ namespace CollegeAssessmentWebApp
                 }
             }
 
-            // Swap Name
+            // Name next
             for (int i = properties.Count - 1; i >= 0; i--)
             {
                 if (properties[i].Name == "Name")
@@ -130,9 +170,8 @@ namespace CollegeAssessmentWebApp
                               "ELSE BEGIN SELECT 0 END";
 
             bool exists = false;
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
@@ -141,7 +180,6 @@ namespace CollegeAssessmentWebApp
                             exists = reader.GetInt32(0) == 1;
                     }
                 }
-                connection.Close();
             }
 
             return exists;
@@ -149,26 +187,98 @@ namespace CollegeAssessmentWebApp
 
         private static void DropTable(string tableName)
         {
+            DeleteTableConstraints(tableName);
             string sqlQuery = $"DROP TABLE {tableName};";
-            ExecuteNonQuery(ConnectionString, sqlQuery);
+            ExecuteNonQuery(sqlQuery);
         }
 
         private static int ClearTable(string tableName)
         {
             string sqlQuery = $"DELETE FROM {tableName};";
-            return ExecuteNonQuery(ConnectionString, sqlQuery);
+            return ExecuteNonQuery(sqlQuery);
         }
 
-        public static void AddTableColumn(string tableName, string columnName, string columnType)
+        private static int DeleteWhere(string tableName, string column, string val)
         {
-            string sqlQuery = $"ALTER TABLE {tableName} ADD {columnName} {columnType};";
-            ExecuteNonQuery(ConnectionString, sqlQuery);
+            string sqlQuery = $"DELETE FROM {tableName} WHERE {column} = '{val}';";
+            return ExecuteNonQuery(sqlQuery);
         }
 
-        public static void DropTableColumn(string tableName, string columnName)
+        public static void AddColumn(string tableName, string column, string columnType)
         {
-            string sqlQuery = $"ALTER TABLE {tableName} DROP COLUMN {columnName};";
-            ExecuteNonQuery(ConnectionString, sqlQuery);
+            string sqlQuery = $"ALTER TABLE {tableName} ADD {column} {columnType};";
+            ExecuteNonQuery(sqlQuery);
+        }
+
+        public static void DropColumn(string tableName, string column)
+        {
+            DeleteColumnRestraints(tableName, column);
+            string sqlQuery = $"ALTER TABLE {tableName} DROP COLUMN {column};";
+            ExecuteNonQuery(sqlQuery);
+        }
+
+        /// <summary>
+        /// Find and delete foreign key references to all columns in a table
+        /// </summary>
+        private static void DeleteTableConstraints(string tableName)
+        {
+            var tables = new List<string>();
+            var constraints = new List<string>();
+
+            string sqlQuery = $"EXEC sp_fkeys '{tableName}'";
+
+            using (SqlConnection connection = GetConnection())
+            {
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            // FKTABLE_NAME column
+                            tables.Add(reader.GetString(6));
+                            // FK_NAME column
+                            constraints.Add(reader.GetString(11));
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < tables.Count; i++)
+            {
+                sqlQuery = $"ALTER TABLE {tables[i]} DROP CONSTRAINT {constraints[i]}";
+                ExecuteNonQuery(sqlQuery);
+            }
+        }
+
+        /// <summary>
+        /// Delete all foreign key references on a column
+        /// </summary>
+        private static void DeleteColumnRestraints(string tableName, string column)
+        {
+            string sqlQuery = $"SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
+                              $"WHERE TABLE_NAME = '{tableName}' " +
+                              $"AND COLUMN_NAME = '{column}' " +
+                              $"AND CONSTRAINT_NAME LIKE 'FK%'";
+
+            var constraints = new List<string>();
+            using (SqlConnection connection = GetConnection())
+            {
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            constraints.Add(reader.GetString(0));
+                    }
+                }
+            }
+
+            foreach (string constraint in constraints)
+            {
+                sqlQuery = $"ALTER TABLE {tableName} DROP CONSTRAINT {constraint}";
+                ExecuteNonQuery(sqlQuery);
+            }
         }
 
         /// <summary>
@@ -179,9 +289,8 @@ namespace CollegeAssessmentWebApp
             int i = -1;
             string sqlQuery = $"SELECT {column} from {tableName}";
 
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
@@ -194,7 +303,6 @@ namespace CollegeAssessmentWebApp
                         }
                     }
                 }
-                connection.Close();
             }
 
             return i + 1;
@@ -219,9 +327,8 @@ namespace CollegeAssessmentWebApp
         public static List<DataObject> LoadList(DataObject dataObject, string sqlQuery)
         {
             var objects = new List<DataObject>();
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
@@ -231,7 +338,6 @@ namespace CollegeAssessmentWebApp
                             objects.Add(dataObject.GetFromReader(reader));
                     }
                 }
-                connection.Close();
             }
             return objects;
         }
@@ -243,7 +349,7 @@ namespace CollegeAssessmentWebApp
         {
             DoubleApostraphies(dataObject);
             string sqlQuery = GetUpdateStatement(dataObject);
-            ExecuteNonQuery(ConnectionString, sqlQuery);
+            ExecuteNonQuery(sqlQuery);
         }
 
         /// <summary>
@@ -288,9 +394,8 @@ namespace CollegeAssessmentWebApp
             List<string> columns = GetColumns(tableName);
             string insertStatement = GetInsertStatement(tableName, columns);
 
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 foreach (DataObject o in objects)
                 {
                     o.DateCreated = DateTime.Now;
@@ -301,29 +406,7 @@ namespace CollegeAssessmentWebApp
                     using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                         command.ExecuteNonQuery();
                 }
-                connection.Close();
             }
-        }
-
-        /// <summary>
-        /// Return the Type of a List<> Property in a DataObject
-        /// </summary>
-        public static Type GetChildListType(DataObject o)
-        {
-            var properties = o.GetType().GetProperties();
-
-            foreach (PropertyInfo pi in properties)
-            {
-                var fullName = pi.PropertyType.FullName;
-
-                if (fullName.StartsWith("System.Collections.Generic.List"))
-                {
-                    string className = fullName.Split('[')[2].Split(',')[0].ToString();
-                    return Type.GetType(className);
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -338,7 +421,7 @@ namespace CollegeAssessmentWebApp
         }
 
         /// <summary>
-        /// Appends the value of the specified column to the VALUES statement
+        /// Appends the value of the specified column to the INSERT VALUES statement
         /// </summary>
         private static string GetValueStatement(DataObject dataObject, string col, string values)
         {
@@ -371,10 +454,9 @@ namespace CollegeAssessmentWebApp
         public static List<string> GetColumns(string tableName)
         {
             List<string> columns = new List<string>();
-            string sqlQuery = "SELECT * FROM " + tableName;
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            string sqlQuery = $"SELECT * FROM {tableName}";
+            using (SqlConnection connection = GetConnection())
             {
-                connection.Open();
                 using (SqlCommand command = new SqlCommand(sqlQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
@@ -383,7 +465,6 @@ namespace CollegeAssessmentWebApp
                             columns.Add(reader.GetName(i));
                     }
                 }
-                connection.Close();
             }
             return columns;
         }
@@ -400,6 +481,26 @@ namespace CollegeAssessmentWebApp
                 if (pi.ToString().Contains("String") && pi.GetSetMethod() != null)
                     pi.SetValue(dataObject, pi.GetValue(dataObject)?.ToString().Replace("'", "''"));
             }
+        }
+
+        /// <summary>
+        /// Return the Type of a List<> Property in a DataObject
+        /// </summary>
+        public static Type GetChildListType(DataObject o)
+        {
+            var properties = o.GetType().GetProperties();
+
+            foreach (PropertyInfo pi in properties)
+            {
+                var fullName = pi.PropertyType.FullName;
+                if (fullName.StartsWith("System.Collections.Generic.List"))
+                {
+                    string className = fullName.Split('[')[2].Split(',')[0].ToString();
+                    return Type.GetType(className);
+                }
+            }
+
+            return null;
         }
 
         #region Helper methods for Curriculum maps and all associated child objects
@@ -491,20 +592,20 @@ namespace CollegeAssessmentWebApp
         {
             // Load objects from each table
             var maps = LoadAll(new CurriculumMap());
-            var outcomes = LoadAll(new Outcome());
-            var indicators = LoadAll(new Indicator());
-            var assignments = LoadAll(new Assignment());
+            var outcomes = LoadAll(new Outcome()).OfType<Outcome>();
+            var indicators = LoadAll(new Indicator()).OfType<Indicator>();
+            var assignments = LoadAll(new Assignment()).OfType<Assignment>();
 
             // Add lists to the parent objects
             // TODO: Find a way to load these using SQL Joins on the IDs
             foreach (Indicator i in indicators)
-                i.Assignments = assignments.OfType<Assignment>().Where(a => a.IndicatorID == i.ID).ToList();
+                i.Assignments = assignments.Where(a => a.IndicatorID == i.ID).ToList();
 
             foreach (Outcome o in outcomes)
-                o.Indicators = indicators.OfType<Indicator>().Where(i => i.OutcomeID == o.ID).ToList();
+                o.Indicators = indicators.Where(i => i.OutcomeID == o.ID).ToList();
 
             foreach (CurriculumMap map in maps)
-                map.Outcomes = outcomes.OfType<Outcome>().Where(o => o.CurriculumMapID == map.ID).ToList();
+                map.Outcomes = outcomes.Where(o => o.CurriculumMapID == map.ID).ToList();
 
             return maps;
         }

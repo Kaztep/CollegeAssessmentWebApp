@@ -26,5 +26,4 @@ namespace CollegeAssessmentWebApp
             return outcome;
         }
     }
-
 }
