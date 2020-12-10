@@ -80,7 +80,7 @@ namespace CollegeAssessmentWebApp
             foreach (PropertyInfo pi in properties)
                 sqlQuery += GetColumnDataType(pi);
 
-            sqlQuery = sqlQuery.TrimEnd().TrimEnd(',') + ");";
+            sqlQuery = sqlQuery.TrimChars(1) + ");";
 
             if (TableExists(dataObject.TableName))
                 DropTable(dataObject.TableName);
@@ -122,7 +122,7 @@ namespace CollegeAssessmentWebApp
             // Assume all other IDs are foreign keys (for now)
             else if (propName.EndsWith("ID"))
             {
-                string foreignTable = propName.Remove(propName.Length - 2, 2);
+                string foreignTable = propName.TrimChars(2);
 
                 // Check if foreign ID column exists, then add FK reference
                 if (TableExists(foreignTable) && ColumnExists(foreignTable, "ID"))
@@ -242,6 +242,9 @@ namespace CollegeAssessmentWebApp
         /// </summary>
         private static int GetNextNumber(string tableName, string column = "ID")
         {
+            //string sqlQuery = $"SELECT MAX({column}) from {tableName}";
+            //var val = GetValuesFromQuery(sqlQuery)[0];
+            //return Convert.ToInt32(val != null ? val : 0) + 1;
             string sqlQuery = $"SELECT {column} from {tableName}";
             var values = GetValuesFromQuery(sqlQuery).OfType<int>().ToList();
             return values.Count == 0 ? 0 : values.Max() + 1;
@@ -302,24 +305,21 @@ namespace CollegeAssessmentWebApp
             if (columns.Contains("ID"))
                 columns.Remove("ID");
 
-            string updateStatement = $"UPDATE {dataObject.TableName} SET ";
+            string updateStatement = $"UPDATE {dataObject.TableName} SET";
 
             string values = String.Empty;
             foreach (string col in columns)
                 values += $"{col} = '{t.GetProperty(col).GetValue(dataObject)}', ";
 
-            // Remove the trailing comma
-            values = values.Remove(values.Length - 2, 1);
-
             string whereClause = $"WHERE ID = '{t.GetProperty("ID").GetValue(dataObject)}'";
 
-            return $"{updateStatement}{values}{whereClause}";
+            return $"{updateStatement} {values.TrimChars(2)} {whereClause}";
         }
 
         /// <summary>
         /// Insert a list of DataObject to the database (must all have same type)
         /// </summary>
-        public static void Insert(List<DataObject> objects)
+        public static void InsertList(List<DataObject> objects)
         {
             if (objects == null || objects.Count == 0)
                 return;
@@ -334,42 +334,62 @@ namespace CollegeAssessmentWebApp
 
             using (SqlConnection connection = GetConnection())
             {
-                foreach (DataObject o in objects)
-                {
-                    o.DateCreated = DateTime.Now;
-
-                    string values = "VALUES (";
-                    foreach (string col in columns)
-                        values = GetValueStatement(o, col, values);
-
-                    string sqlQuery = String.Format("{0}{1})", insertStatement, values.TrimEnd().TrimEnd(','));
-
-                    using (SqlCommand command = new SqlCommand(sqlQuery, connection))
-                        command.ExecuteNonQuery();
-                }
+                foreach (DataObject obj in objects)
+                    ExecuteInsert(obj, connection, columns, insertStatement);
             }
         }
 
         /// <summary>
-        /// Returns INSERT statement with the columns specified
+        /// Insert a DataObject to the database
+        /// </summary>
+        public static void InsertSingle(DataObject obj)
+        {
+            string tableName = obj.TableName;
+
+            List<string> columns = GetColumns(tableName);
+            string insertStatement = GetInsertStatement(tableName, columns);
+
+            using (SqlConnection connection = GetConnection())
+                ExecuteInsert(obj, connection, columns, insertStatement);
+        }
+
+        /// <summary>
+        /// Finish generating insert statement then execute non query
+        /// </summary>
+        private static void ExecuteInsert(DataObject obj, SqlConnection connection, List<string> columns, string insertStatement)
+        {
+            obj.DateCreated = DateTime.Now;
+
+            string values = "VALUES (";
+            foreach (string col in columns)
+                values += GetInsertValueStatement(obj, col);
+
+            string sqlQuery = $"{insertStatement}{values.TrimChars(2)})";
+
+            using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                command.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Returns beginning of INSERT statement with the columns specified
         /// </summary>
         private static string GetInsertStatement(string tableName, List<string> columns)
         {
             string s = $"INSERT INTO {tableName} (";
             foreach (string c in columns)
                 s += c + ", ";
-            return s = s.Remove(s.Length - 2) + ") ";
+            return s.TrimChars(2) + ") ";
         }
 
         /// <summary>
         /// Appends the value of the specified column to the INSERT VALUES statement
         /// </summary>
-        private static string GetValueStatement(DataObject dataObject, string col, string values)
+        private static string GetInsertValueStatement(DataObject dataObject, string column)
         {
-            PropertyInfo pi = dataObject.GetType().GetProperty(col);
+            PropertyInfo pi = dataObject.GetType().GetProperty(column);
 
             if (pi.GetValue(dataObject) == null)
-                return values += "'', ";
+                return "'', ";
 
             string val = pi.GetValue(dataObject).ToString();
             Type type = pi.PropertyType;
@@ -379,13 +399,15 @@ namespace CollegeAssessmentWebApp
             //    val = val.Split(' ')[0];
 
             if (type == typeof(string) || type == typeof(char) || type == typeof(DateTime))
-                values += "'" + val.Replace("'", "''") + "', ";
-            else if (type == typeof(Int32) || type == typeof(double) || type == typeof(decimal))
-                values += val + ", ";
-            else if (type == typeof(bool))
-                values += (val == "False" ? "0" : "1") + ", ";
+                val = $"'{val.Replace("'", "''")}'";
 
-            return values;
+            //else if (type == typeof(Int32) || type == typeof(double) || type == typeof(decimal))
+            //    return val + ", ";
+
+            else if (type == typeof(bool))
+                val = val == "False" ? "0" : "1";
+
+            return val + ", ";
         }
 
         #region Non-SQL helpers
@@ -509,10 +531,10 @@ namespace CollegeAssessmentWebApp
             var assignments = indicators.SelectMany(o => (o as Indicator).Assignments).OfType<DataObject>().ToList();
 
             // Insert all the collections
-            Insert(curriculumMaps);
-            Insert(outcomes);
-            Insert(indicators);
-            Insert(assignments);
+            InsertList(curriculumMaps);
+            InsertList(outcomes);
+            InsertList(indicators);
+            InsertList(assignments);
         }
 
         /// <summary>

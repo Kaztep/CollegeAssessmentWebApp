@@ -197,6 +197,7 @@
     <Compile Include="KaztepObjects\CurriculumMap.cs" />
     <Compile Include="KaztepObjects\DataObject.cs" />
     <Compile Include="KaztepObjects\ExcelHelper.cs" />
+    <Compile Include="KaztepObjects\ExtensionMethods.cs" />
     <Compile Include="KaztepObjects\Indicator.cs" />
     <Compile Include="KaztepObjects\Outcome.cs" />
     <Compile Include="KaztepObjects\SQLHelper.cs" />
