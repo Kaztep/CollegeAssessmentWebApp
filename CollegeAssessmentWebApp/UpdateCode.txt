@@ -1,0 +1,139 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+
+namespace ConnectToMyDatabase
+{   
+    public partial class Form2 : Form
+    {
+        SqlConnection con = new SqlConnection(@"Data Source =(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\mrako\Desktop\Visual Studio Code\C#\MY_DATABASE_20200618\ConnectToMyDatabase\Database1.mdf;Integrated Security=True;");
+        SqlCommand cmd;
+        SqlDataAdapter adapt;
+        //ID variable used in Updating and Deleting Record  
+        int ID =0 ;
+        public Form2()
+        {
+            InitializeComponent();
+            DisplayData();
+        }
+        //Display Data in DataGridView  
+        private void DisplayData()
+        {
+            con.Open();
+            DataTable dt = new DataTable();
+            adapt = new SqlDataAdapter("select * from Studets_Table", con);
+            adapt.Fill(dt);
+            dataGridView1.DataSource = dt;
+            con.Close();
+        }
+        //Clear Data  
+        private void ClearData()
+        {
+            text_Name.Text = "";
+            text_GPA.Text = "";
+            ID = 0;
+        }
+        private void Button2_Click(object sender, EventArgs e)
+        {
+            if (text_Name.Text != "" && text_GPA.Text != "")
+            {
+                cmd = new SqlCommand("insert into Studets_Table(ID,Name,GPA) values(@ID,@name,@GPA)", con);
+                con.Open();
+                cmd.Parameters.AddWithValue("@ID", text_ID.Text);
+                cmd.Parameters.AddWithValue("@name", text_Name.Text);
+                cmd.Parameters.AddWithValue("@GPA", text_GPA.Text);
+                cmd.ExecuteNonQuery();
+                con.Close();
+                MessageBox.Show("Record Inserted Successfully");
+                DisplayData();
+                ClearData();
+            }
+            else
+            {
+                MessageBox.Show("Please Provide Details!");
+            }
+        }
+
+        private void Button3_Click(object sender, EventArgs e)
+        {
+            if (ID != 0)
+            {
+                cmd = new SqlCommand("delete Studets_Table where ID=@id", con);
+                con.Open();
+                cmd.Parameters.AddWithValue("@id",ID);
+                cmd.ExecuteNonQuery();
+                con.Close();
+                MessageBox.Show("Record Deleted Successfully!");
+                DisplayData();
+                ClearData();
+            }
+            else
+            {
+                MessageBox.Show("Please Select Record to Delete");
+            }
+        }
+
+
+        private void Form2_Load(object sender, EventArgs e)
+        {
+            // TODO: This line of code loads data into the 'database1DataSet.Studets_Table' table. You can move, or remove it, as needed.
+            this.studets_TableTableAdapter.Fill(this.database1DataSet.Studets_Table);
+            // TODO: This line of code loads data into the 'dataSet1.demotb' table. You can move, or remove it, as needed.
+            //this.demotbTableAdapter.Fill(this.dataSet1.demotb);
+
+        }
+
+        private void DataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+
+        private void Label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void DataGridView1_CellContentClick_1(object sender, DataGridViewCellEventArgs e)
+        {
+            ID = Convert.ToInt32(dataGridView1.Rows[e.RowIndex].Cells[0].Value.ToString());
+            text_Name.Text = dataGridView1.Rows[e.RowIndex].Cells[1].Value.ToString();
+            text_GPA.Text = dataGridView1.Rows[e.RowIndex].Cells[2].Value.ToString();
+        }
+
+        private void Button1_Click(object sender, EventArgs e)
+        {
+            if (text_Name.Text != "" && text_GPA.Text != "")
+            {
+                cmd = new SqlCommand("update Studets_Table set Name=@name,GPA=@gpa where ID=@id", con);
+                con.Open();
+                cmd.Parameters.AddWithValue("@id", text_ID.Text);
+                cmd.Parameters.AddWithValue("@name", text_Name.Text);
+                cmd.Parameters.AddWithValue("@gpa", text_GPA.Text);
+                cmd.ExecuteNonQuery();
+                MessageBox.Show("Record Updated Successfully");
+                con.Close();
+                DisplayData();
+                ClearData();
+            }
+            else
+            {
+                MessageBox.Show("Please Select Record to Update");
+            }
+        }
+
+        private void Button2_Click_1(object sender, EventArgs e)
+        {
+            con.Close();
+            this.Hide();
+            Environment.Exit(-1);
+
+        }
+    }
+}

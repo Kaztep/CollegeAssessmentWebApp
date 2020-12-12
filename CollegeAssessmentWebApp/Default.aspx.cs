@@ -37,7 +37,7 @@ namespace CollegeAssessmentWebApp
             }
 
         }
-     
+
         public List<string> GetFileNames()
         {
             string[] hold = Directory.GetFiles(@"C:\Users\mrako\Desktop\Keztap Solutions\GitHub\AssessmentExcelFiles");
@@ -57,16 +57,20 @@ namespace CollegeAssessmentWebApp
 
         protected void btnUpload_Click(object sender, EventArgs e)
         {
-            if (this.FileUpLoad1.HasFile)
+            if (this.FileUpLoad1.HasFile && CourseSelection.SelectedValue != "")
             {
-
                 this.FileUpLoad1.SaveAs(@"C:\Users\mrako\Desktop\Keztap Solutions\CollegeAssessmentWebApp\FileUploadTesters\NewTest\" + FileUpLoad1.FileName);
-                Label1.Text = "File Uploaded: " + FileUpLoad1.FileName + DateTime.Now.ToString(" mm/dd/yyyy: hh:mm:ss tt");
+                Label1.Text = CourseSelection.SelectedValue +":" + FileUpLoad1.FileName + DateTime.Now.ToString(" mm/dd/yyyy: hh:mm:ss tt");
+            }
+            else if(this.FileUpLoad1.HasFile && CourseSelection.SelectedValue == "")
+            {
+                Label1.Text = "Please Select a Course";
             }
             else
             {
                 Label1.Text = "No File Uploaded.";
             }
         }
+       
     }
 }
